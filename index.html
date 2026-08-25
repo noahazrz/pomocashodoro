@@ -11,62 +11,34 @@
 </head>
 <body>
 
-<!-- ======================= AUTH SCREEN ======================= -->
-<div id="auth-screen" class="auth-screen">
-  <div class="auth-card">
-    <div class="auth-brand">
-      <span class="auth-brand__mark">●</span>
-      <span class="auth-brand__name">Pomocashodoro</span>
-    </div>
-    <p class="auth-tag">A timer for the shape of a working day.</p>
-
-    <button type="button" id="google-signin-btn" class="btn btn--google btn--block">
-      <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
-        <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.71v2.26h2.9c1.7-1.57 2.7-3.88 2.7-6.61z"/>
-        <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.19l-2.9-2.26c-.81.54-1.85.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.96v2.33A9 9 0 0 0 9 18z"/>
-        <path fill="#FBBC05" d="M3.95 10.69A5.4 5.4 0 0 1 3.67 9c0-.59.1-1.16.28-1.69V4.98H.96A9 9 0 0 0 0 9c0 1.45.35 2.83.96 4.02l2.99-2.33z"/>
-        <path fill="#EA4335" d="M9 3.58c1.32 0 2.51.46 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .96 4.98l2.99 2.33C4.66 5.17 6.65 3.58 9 3.58z"/>
-      </svg>
-      Continue with Google
-    </button>
-    <p class="auth-error" id="auth-error"></p>
-
-    <p class="auth-footnote">Your focus history is saved to your account and follows you to any device.</p>
-  </div>
-</div>
-
-<!-- ======================= APP SHELL ======================= -->
-<div id="app-shell" class="app-shell" hidden>
+<!-- ======================= MAIN INTERFACE ======================= -->
+<div id="app-shell" class="app-shell">
 
   <header class="topbar">
     <div class="topbar__brand">
       <span class="topbar__mark">●</span> Pomocashodoro
     </div>
     <nav class="topbar__nav">
-      <button class="navlink is-active" data-view="timer">Timer</button>
-      <button class="navlink" data-view="report">Report</button>
+      <button type="button" class="navlink is-active" data-view="timer">Timer</button>
+      <button type="button" class="navlink" data-view="report">Report</button>
     </nav>
     <div class="topbar__user">
-      <button class="iconbtn" id="settings-btn" title="Settings" aria-label="Open settings">⚙</button>
-      <div class="user-chip">
-        <span id="user-name">—</span>
-        <button class="linkbtn" id="logout-btn">Log out</button>
-      </div>
+      <button type="button" class="iconbtn" id="settings-btn" title="Settings" aria-label="Open settings">⚙</button>
     </div>
   </header>
 
   <!-- ---------------- TIMER VIEW ---------------- -->
   <main id="view-timer" class="view">
     <section class="mode-switch" role="tablist" aria-label="Timer mode">
-      <button class="mode-btn is-active" data-mode="pomodoro" role="tab">Pomodoro</button>
-      <button class="mode-btn" data-mode="short" role="tab">Short Break</button>
-      <button class="mode-btn" data-mode="long" role="tab">Long Break</button>
+      <button type="button" class="mode-btn is-active" data-mode="pomodoro" role="tab">Pomodoro</button>
+      <button type="button" class="mode-btn" data-mode="short" role="tab">Short Break</button>
+      <button type="button" class="mode-btn" data-mode="long" role="tab">Long Break</button>
     </section>
 
     <section class="timer-card" id="timer-card">
       <div class="timer-clock" id="timer-clock">25:00</div>
       <div class="timer-task" id="timer-task-label">No task selected</div>
-      <button class="btn btn--start" id="start-btn">START</button>
+      <button type="button" class="btn btn--start" id="start-btn">START</button>
     </section>
 
     <section class="round-counter" id="round-counter">
@@ -81,7 +53,7 @@
 
       <ul id="task-list" class="task-list"></ul>
 
-      <button class="add-task-btn" id="add-task-btn">
+      <button type="button" class="add-task-btn" id="add-task-btn">
         <span class="add-task-btn__plus">+</span> Add Task
       </button>
 
@@ -100,7 +72,7 @@
       </form>
 
       <p class="tasks-empty" id="tasks-empty" hidden>You've finished all your tasks for today 🎉</p>
-      <button class="linkbtn linkbtn--muted" id="clear-tasks-btn">Clear finished tasks</button>
+      <button type="button" class="linkbtn linkbtn--muted" id="clear-tasks-btn">Clear finished tasks</button>
     </section>
   </main>
 
@@ -112,11 +84,11 @@
         <span class="summary-card__label">hours focused</span>
       </div>
       <div class="summary-card">
-        <span class="summary-card__value" id="stat-days-accessed">0</span>
+        <span class="summary-card__value" id="stat-days-accessed">1</span>
         <span class="summary-card__label">days accessed</span>
       </div>
       <div class="summary-card">
-        <span class="summary-card__value" id="stat-streak">0</span>
+        <span class="summary-card__value" id="stat-streak">1</span>
         <span class="summary-card__label">day streak</span>
       </div>
     </section>
@@ -195,12 +167,6 @@
 
 <div id="toast" class="toast" hidden></div>
 
-<!-- Firebase SDKs (compat build) -->
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-
-<script src="firebase-config.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
