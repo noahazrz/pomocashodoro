@@ -406,3 +406,18 @@ button {
   .topbar { padding: 0.85rem 1rem; }
   .summary-card__value { font-size: 1.5rem; }
 }
+
+.btn--google-sm {
+  background: var(--green-800);
+  color: var(--bone);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  padding: 0.4rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--green-700);
+}
+.btn--google-sm:hover {
+  background: var(--green-700);
+}
