@@ -1,7 +1,8 @@
 /* ==========================================================================
-   Pomocashodoro — focus timer
+   Pomocashodoro — focus timer (Hybrid Local + Firebase Sync)
    ========================================================================== */
 
+let currentUser = null;
 let settings = {
   pomodoro: 25,
   short: 5,
@@ -15,6 +16,7 @@ let settings = {
 let tasks = [];
 let sessions = [];
 let activeTaskId = null;
+let accessDates = [todayKey()];
 
 let mode = 'pomodoro';
 let roundCurrent = 1;
@@ -26,23 +28,99 @@ let endTimestamp = null;
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
-// Load saved data
-try {
-  const savedSettings = JSON.parse(localStorage.getItem('pomocashodoro_settings'));
-  if (savedSettings) settings = Object.assign(settings, savedSettings);
-
-  const savedTasks = JSON.parse(localStorage.getItem('pomocashodoro_tasks'));
-  if (Array.isArray(savedTasks)) tasks = savedTasks;
-
-  const savedSessions = JSON.parse(localStorage.getItem('pomocashodoro_sessions'));
-  if (Array.isArray(savedSessions)) sessions = savedSessions;
-} catch (e) {}
-
-// Initial load
+// ---------------- Init from Local Storage ----------------
+loadLocalData();
 applySettingsToForm();
 renderTasks();
 resetTimerForMode('pomodoro', true);
 renderReportStats();
+
+// ---------------- Firebase Auth Binding ----------------
+const hasFirebase = typeof firebase !== 'undefined' && typeof auth !== 'undefined';
+
+if (hasFirebase) {
+  const googleProvider = new firebase.auth.GoogleAuthProvider();
+
+  $('#google-login-btn').addEventListener('click', async () => {
+    try {
+      await auth.signInWithPopup(googleProvider);
+    } catch (err) {
+      showToast('Sign-in failed: ' + err.message);
+    }
+  });
+
+  $('#logout-btn').addEventListener('click', async () => {
+    await auth.signOut();
+  });
+
+  auth.onAuthStateChanged(async (user) => {
+    if (user) {
+      currentUser = user;
+      $('#google-login-btn').hidden = true;
+      $('#user-chip').hidden = false;
+      $('#user-name').textContent = user.displayName ? user.displayName.split(' ')[0] : user.email.split('@')[0];
+      await syncWithFirestore();
+      showToast('Synced with Google account');
+    } else {
+      currentUser = null;
+      $('#google-login-btn').hidden = false;
+      $('#user-chip').hidden = true;
+    }
+  });
+}
+
+async function syncWithFirestore() {
+  if (!currentUser || typeof db === 'undefined') return;
+
+  const userRef = db.collection('users').doc(currentUser.uid);
+  const snap = await userRef.get();
+
+  if (snap.exists) {
+    const data = snap.data();
+    if (data.settings) settings = Object.assign(settings, data.settings);
+    if (Array.isArray(data.accessDates)) accessDates = Array.from(new Set([...accessDates, ...data.accessDates]));
+    applySettingsToForm();
+  }
+
+  // Update access dates
+  if (!accessDates.includes(todayKey())) accessDates.push(todayKey());
+  await userRef.set({ settings, accessDates }, { merge: true });
+
+  // Load cloud tasks & sessions
+  const taskSnap = await userRef.collection('tasks').orderBy('createdAt', 'asc').get();
+  if (!taskSnap.empty) {
+    tasks = taskSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderTasks();
+  }
+
+  const sessionSnap = await userRef.collection('sessions').orderBy('completedAt', 'desc').limit(50).get();
+  if (!sessionSnap.empty) {
+    sessions = sessionSnap.docs.map(d => d.data());
+    renderReport();
+  }
+
+  renderReportStats();
+}
+
+function loadLocalData() {
+  try {
+    const s = JSON.parse(localStorage.getItem('pomocashodoro_settings'));
+    if (s) settings = Object.assign(settings, s);
+
+    const t = JSON.parse(localStorage.getItem('pomocashodoro_tasks'));
+    if (Array.isArray(t)) tasks = t;
+
+    const ses = JSON.parse(localStorage.getItem('pomocashodoro_sessions'));
+    if (Array.isArray(ses)) sessions = ses;
+
+    const acc = JSON.parse(localStorage.getItem('pomocashodoro_accessDates'));
+    if (Array.isArray(acc)) accessDates = acc;
+    if (!accessDates.includes(todayKey())) {
+      accessDates.push(todayKey());
+      localStorage.setItem('pomocashodoro_accessDates', JSON.stringify(accessDates));
+    }
+  } catch (e) {}
+}
 
 // ==========================================================================
 // SETTINGS MODAL
@@ -81,7 +159,7 @@ function applySettingsToForm() {
   $('#round-total').textContent = settings.rounds;
 }
 
-$('#settings-save-btn').addEventListener('click', () => {
+$('#settings-save-btn').addEventListener('click', async () => {
   settings = {
     pomodoro: clampInt($('#set-pomodoro').value, 1, 90, 25),
     short: clampInt($('#set-short').value, 1, 60, 5),
@@ -93,16 +171,17 @@ $('#settings-save-btn').addEventListener('click', () => {
   };
 
   localStorage.setItem('pomocashodoro_settings', JSON.stringify(settings));
-  $('#round-total').textContent = settings.rounds;
+  if (currentUser && typeof db !== 'undefined') {
+    db.collection('users').doc(currentUser.uid).set({ settings }, { merge: true });
+  }
 
+  $('#round-total').textContent = settings.rounds;
   closeSettings();
 
-  // Navigate to timer view
   $$('.navlink').forEach(b => b.classList.toggle('is-active', b.dataset.view === 'timer'));
   $('#view-timer').hidden = false;
   $('#view-report').hidden = true;
 
-  // Change to pomodoro mode and start the timer immediately
   setMode('pomodoro');
   stopTimer();
   resetTimerForMode('pomodoro', true);
@@ -315,7 +394,7 @@ $('#task-cancel-btn').addEventListener('click', () => {
   $('#task-form').reset();
 });
 
-$('#task-form').addEventListener('submit', (e) => {
+$('#task-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const title = $('#task-title').value.trim();
   const est = clampInt($('#task-est').value, 1, 12, 1);
@@ -336,6 +415,12 @@ $('#task-form').addEventListener('submit', (e) => {
   }
 
   saveTasks();
+  if (currentUser && typeof db !== 'undefined') {
+    db.collection('users').doc(currentUser.uid).collection('tasks').doc(newTask.id).set({
+      ...newTask, createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  }
+
   renderTasks();
   $('#task-form').hidden = true;
   $('#add-task-btn').hidden = false;
@@ -347,6 +432,9 @@ function toggleTaskDone(id) {
   if (!t) return;
   t.isDone = !t.isDone;
   saveTasks();
+  if (currentUser && typeof db !== 'undefined') {
+    db.collection('users').doc(currentUser.uid).collection('tasks').doc(id).update({ isDone: t.isDone });
+  }
   renderTasks();
 }
 
@@ -354,6 +442,9 @@ function deleteTask(id) {
   tasks = tasks.filter(t => t.id !== id);
   if (activeTaskId === id) activeTaskId = null;
   saveTasks();
+  if (currentUser && typeof db !== 'undefined') {
+    db.collection('users').doc(currentUser.uid).collection('tasks').doc(id).delete();
+  }
   renderTasks();
 }
 
@@ -363,12 +454,23 @@ function incrementTaskDone(id) {
   t.doneCount = (t.doneCount || 0) + 1;
   if (t.doneCount >= t.estPomodoros) t.isDone = true;
   saveTasks();
+  if (currentUser && typeof db !== 'undefined') {
+    db.collection('users').doc(currentUser.uid).collection('tasks').doc(id).update({
+      doneCount: t.doneCount, isDone: t.isDone
+    });
+  }
   renderTasks();
 }
 
 $('#clear-tasks-btn').addEventListener('click', () => {
+  const doneIds = tasks.filter(t => t.isDone).map(t => t.id);
   tasks = tasks.filter(t => !t.isDone);
   saveTasks();
+  if (currentUser && typeof db !== 'undefined') {
+    const batch = db.batch();
+    doneIds.forEach(id => batch.delete(db.collection('users').doc(currentUser.uid).collection('tasks').doc(id)));
+    batch.commit();
+  }
   renderTasks();
 });
 
@@ -385,19 +487,27 @@ function todayKey(d = new Date()) {
 }
 
 function logSession(sessionMode, minutes) {
-  sessions.unshift({
+  const s = {
     mode: sessionMode,
     minutes,
     taskTitle: sessionMode === 'pomodoro' ? (activeTaskLabel() || 'Untitled task') : null,
     dateKey: todayKey()
-  });
+  };
+  sessions.unshift(s);
   localStorage.setItem('pomocashodoro_sessions', JSON.stringify(sessions));
+
+  if (currentUser && typeof db !== 'undefined') {
+    db.collection('users').doc(currentUser.uid).collection('sessions').add({
+      ...s, completedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  }
 }
 
 function renderReport() {
   renderLog();
   renderBarChart();
   renderTotalHours();
+  renderReportStats();
 }
 
 function renderLog() {
@@ -441,8 +551,21 @@ function renderTotalHours() {
 }
 
 function renderReportStats() {
-  $('#stat-days-accessed').textContent = '1';
-  $('#stat-streak').textContent = '1';
+  $('#stat-days-accessed').textContent = accessDates.length;
+  $('#stat-streak').textContent = computeStreak(accessDates);
+}
+
+function computeStreak(sortedDates) {
+  if (sortedDates.length === 0) return 0;
+  const set = new Set(sortedDates);
+  let streak = 0;
+  let cursor = new Date();
+  if (!set.has(todayKey(cursor))) cursor.setDate(cursor.getDate() - 1);
+  while (set.has(todayKey(cursor))) {
+    streak++;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return streak;
 }
 
 // ==========================================================================
