@@ -41,13 +41,20 @@ const hasFirebase = typeof firebase !== 'undefined' && typeof auth !== 'undefine
 if (hasFirebase) {
   const googleProvider = new firebase.auth.GoogleAuthProvider();
 
-  $('#google-login-btn').addEventListener('click', async () => {
-    try {
-      await auth.signInWithPopup(googleProvider);
-    } catch (err) {
-      showToast('Sign-in failed: ' + err.message);
-    }
-  });
+   $('#google-login-btn').addEventListener('click', async () => {
+  if (typeof firebase === 'undefined' || typeof auth === 'undefined') {
+    showToast('Firebase configuration missing in firebase-config.js');
+    return;
+  }
+  
+  try {
+    const googleProvider = new firebase.auth.GoogleAuthProvider();
+    await auth.signInWithPopup(googleProvider);
+  } catch (err) {
+    showToast('Sign-in failed: ' + (err.message || err));
+  }
+});
+
 
   $('#logout-btn').addEventListener('click', async () => {
     await auth.signOut();
