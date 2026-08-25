@@ -1,8 +1,7 @@
-/* ============ Tokens ============
-   Concept: an analog kitchen timer left on a garden shelf.
-   Deep vine green ground, unripe-to-ripe tomato red as the single
-   accent (justified by the subject itself), warm bone for text/dials.
-*/
+[hidden] {
+  display: none !important;
+}
+
 :root {
   --green-950: #12211c;
   --green-900: #17281f;
@@ -71,16 +70,6 @@ button {
 .btn--ghost:hover { border-color: var(--bone-dim); }
 .btn--block { width: 100%; }
 
-.btn--google {
-  background: var(--bone);
-  color: var(--green-950);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.6rem;
-}
-.btn--google:hover { background: #e4ddcb; }
-
 .linkbtn {
   background: none;
   color: var(--bone-dim);
@@ -104,91 +93,6 @@ button {
   color: var(--bone-dim);
 }
 .iconbtn:hover { background: var(--green-800); color: var(--bone); }
-
-/* ============ Auth screen ============ */
-.auth-screen {
-  min-height: 100vh;
-  display: grid;
-  place-items: center;
-  padding: 2rem 1rem;
-  background:
-    radial-gradient(circle at 15% 20%, rgba(232,84,60,0.10), transparent 45%),
-    radial-gradient(circle at 85% 80%, rgba(122,154,110,0.12), transparent 45%),
-    var(--green-950);
-}
-
-.auth-card {
-  width: 100%;
-  max-width: 380px;
-  background: var(--green-900);
-  border: 1px solid var(--green-700);
-  border-radius: var(--radius);
-  padding: 2rem 1.75rem 1.75rem;
-}
-
-.auth-brand {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-family: var(--font-display);
-  font-weight: 600;
-  font-size: 1.4rem;
-}
-.auth-brand__mark { color: var(--tomato); font-size: 1.1rem; }
-
-.auth-tag {
-  color: var(--bone-dim);
-  font-size: 0.9rem;
-  margin: 0.4rem 0 1.5rem;
-}
-
-.auth-tabs {
-  display: flex;
-  background: var(--green-800);
-  border-radius: 10px;
-  padding: 4px;
-  margin-bottom: 1.5rem;
-}
-.auth-tab {
-  flex: 1;
-  padding: 0.5rem 0;
-  border-radius: 8px;
-  font-weight: 600;
-  font-size: 0.88rem;
-  color: var(--bone-dim);
-}
-.auth-tab.is-active {
-  background: var(--green-950);
-  color: var(--bone);
-}
-
-.auth-form { display: flex; flex-direction: column; gap: 1rem; }
-
-.field { display: flex; flex-direction: column; gap: 0.4rem; }
-.field__label { font-size: 0.8rem; color: var(--bone-dim); }
-.field input {
-  background: var(--green-950);
-  border: 1px solid var(--green-700);
-  border-radius: 8px;
-  padding: 0.65rem 0.8rem;
-  font-size: 0.95rem;
-}
-.field input:focus { border-color: var(--tomato); }
-
-.auth-error {
-  color: var(--tomato);
-  font-size: 0.82rem;
-  min-height: 1em;
-  margin: -0.4rem 0 0;
-}
-
-.auth-footnote {
-  color: var(--bone-dim);
-  font-size: 0.78rem;
-  text-align: center;
-  margin: 1.5rem 0 0;
-  opacity: 0.8;
-}
 
 /* ============ App shell ============ */
 .app-shell { min-height: 100vh; }
@@ -222,7 +126,6 @@ button {
 .navlink:hover { color: var(--bone); }
 
 .topbar__user { display: flex; align-items: center; gap: 0.75rem; }
-.user-chip { display: flex; align-items: center; gap: 0.6rem; font-size: 0.85rem; color: var(--bone-dim); }
 
 .view { max-width: 640px; margin: 0 auto; padding: 2.5rem 1.25rem 4rem; }
 
@@ -498,13 +401,8 @@ button {
   z-index: 60;
 }
 
-/* ============ Responsive ============ */
 @media (max-width: 480px) {
   .timer-clock { font-size: 4rem; }
   .topbar { padding: 0.85rem 1rem; }
   .summary-card__value { font-size: 1.5rem; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .btn { transition: none; }
 }
