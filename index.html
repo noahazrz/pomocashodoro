@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vinewatch — Focus Timer</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍅</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ======================= AUTH SCREEN ======================= -->
+<div id="auth-screen" class="auth-screen">
+  <div class="auth-card">
+    <div class="auth-brand">
+      <span class="auth-brand__mark">●</span>
+      <span class="auth-brand__name">Vinewatch</span>
+    </div>
+    <p class="auth-tag">A timer for the shape of a working day.</p>
+
+    <button type="button" id="google-signin-btn" class="btn btn--google btn--block">
+      <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+        <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.71v2.26h2.9c1.7-1.57 2.7-3.88 2.7-6.61z"/>
+        <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.19l-2.9-2.26c-.81.54-1.85.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.96v2.33A9 9 0 0 0 9 18z"/>
+        <path fill="#FBBC05" d="M3.95 10.69A5.4 5.4 0 0 1 3.67 9c0-.59.1-1.16.28-1.69V4.98H.96A9 9 0 0 0 0 9c0 1.45.35 2.83.96 4.02l2.99-2.33z"/>
+        <path fill="#EA4335" d="M9 3.58c1.32 0 2.51.46 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .96 4.98l2.99 2.33C4.66 5.17 6.65 3.58 9 3.58z"/>
+      </svg>
+      Continue with Google
+    </button>
+    <p class="auth-error" id="auth-error"></p>
+
+    <p class="auth-footnote">Your focus history is saved to your account and follows you to any device.</p>
+  </div>
+</div>
+
+<!-- ======================= APP SHELL ======================= -->
+<div id="app-shell" class="app-shell" hidden>
+
+  <header class="topbar">
+    <div class="topbar__brand">
+      <span class="topbar__mark">●</span> Vinewatch
+    </div>
+    <nav class="topbar__nav">
+      <button class="navlink is-active" data-view="timer">Timer</button>
+      <button class="navlink" data-view="report">Report</button>
+    </nav>
+    <div class="topbar__user">
+      <button class="iconbtn" id="settings-btn" title="Settings" aria-label="Open settings">⚙</button>
+      <div class="user-chip">
+        <span id="user-name">—</span>
+        <button class="linkbtn" id="logout-btn">Log out</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ---------------- TIMER VIEW ---------------- -->
+  <main id="view-timer" class="view">
+    <section class="mode-switch" role="tablist" aria-label="Timer mode">
+      <button class="mode-btn is-active" data-mode="pomodoro" role="tab">Pomodoro</button>
+      <button class="mode-btn" data-mode="short" role="tab">Short Break</button>
+      <button class="mode-btn" data-mode="long" role="tab">Long Break</button>
+    </section>
+
+    <section class="timer-card" id="timer-card">
+      <div class="timer-clock" id="timer-clock">25:00</div>
+      <div class="timer-task" id="timer-task-label">No task selected</div>
+      <button class="btn btn--start" id="start-btn">START</button>
+    </section>
+
+    <section class="round-counter" id="round-counter">
+      <span>Round <strong id="round-current">1</strong> of <strong id="round-total">4</strong></span>
+    </section>
+
+    <section class="tasks-panel">
+      <div class="tasks-panel__head">
+        <h2>Tasks</h2>
+        <span class="tasks-panel__count" id="tasks-count">0/0</span>
+      </div>
+
+      <ul id="task-list" class="task-list"></ul>
+
+      <button class="add-task-btn" id="add-task-btn">
+        <span class="add-task-btn__plus">+</span> Add Task
+      </button>
+
+      <form id="task-form" class="task-form" hidden>
+        <input type="text" id="task-title" placeholder="What are you working on?" required>
+        <div class="task-form__row">
+          <label class="task-form__est">
+            Est. pomodoros
+            <input type="number" id="task-est" min="1" max="12" value="1">
+          </label>
+          <div class="task-form__actions">
+            <button type="button" class="btn btn--ghost" id="task-cancel-btn">Cancel</button>
+            <button type="submit" class="btn btn--primary">Save</button>
+          </div>
+        </div>
+      </form>
+
+      <p class="tasks-empty" id="tasks-empty" hidden>You've finished all your tasks for today 🎉</p>
+      <button class="linkbtn linkbtn--muted" id="clear-tasks-btn">Clear finished tasks</button>
+    </section>
+  </main>
+
+  <!-- ---------------- REPORT VIEW ---------------- -->
+  <main id="view-report" class="view" hidden>
+    <section class="summary-grid">
+      <div class="summary-card">
+        <span class="summary-card__value" id="stat-total-hours">0h</span>
+        <span class="summary-card__label">hours focused</span>
+      </div>
+      <div class="summary-card">
+        <span class="summary-card__value" id="stat-days-accessed">0</span>
+        <span class="summary-card__label">days accessed</span>
+      </div>
+      <div class="summary-card">
+        <span class="summary-card__value" id="stat-streak">0</span>
+        <span class="summary-card__label">day streak</span>
+      </div>
+    </section>
+
+    <section class="chart-card">
+      <div class="chart-card__head">
+        <h2>Focus, last 7 days</h2>
+      </div>
+      <div class="bar-chart" id="bar-chart"></div>
+    </section>
+
+    <section class="log-card">
+      <div class="chart-card__head">
+        <h2>Recent sessions</h2>
+      </div>
+      <table class="log-table">
+        <thead>
+          <tr><th>Date</th><th>Task</th><th>Duration</th></tr>
+        </thead>
+        <tbody id="log-body"></tbody>
+      </table>
+      <p class="log-empty" id="log-empty" hidden>No sessions logged yet — finish a pomodoro to see it here.</p>
+    </section>
+  </main>
+
+</div>
+
+<!-- ======================= SETTINGS MODAL ======================= -->
+<div id="settings-modal" class="modal" hidden>
+  <div class="modal__card">
+    <div class="modal__head">
+      <h2>Settings</h2>
+      <button class="iconbtn" id="settings-close-btn" aria-label="Close settings">✕</button>
+    </div>
+
+    <div class="modal__section">
+      <h3>Timer (minutes)</h3>
+      <div class="settings-row">
+        <label>Pomodoro <input type="number" id="set-pomodoro" min="1" max="90" value="25"></label>
+        <label>Short Break <input type="number" id="set-short" min="1" max="60" value="5"></label>
+        <label>Long Break <input type="number" id="set-long" min="1" max="90" value="15"></label>
+      </div>
+    </div>
+
+    <div class="modal__section">
+      <h3>Rounds</h3>
+      <div class="settings-row">
+        <label>Long break after <input type="number" id="set-rounds" min="2" max="12" value="4"> pomodoros</label>
+      </div>
+    </div>
+
+    <div class="modal__section">
+      <h3>Auto start</h3>
+      <label class="switch-row">
+        <input type="checkbox" id="set-autostart-breaks"> Auto start breaks
+      </label>
+      <label class="switch-row">
+        <input type="checkbox" id="set-autostart-pomodoros"> Auto start pomodoros
+      </label>
+    </div>
+
+    <div class="modal__section">
+      <h3>Alarm sound</h3>
+      <div class="settings-row">
+        <select id="set-alarm-sound">
+          <option value="bell">Bell</option>
+          <option value="digital">Digital</option>
+          <option value="none">Silent</option>
+        </select>
+      </div>
+    </div>
+
+    <button class="btn btn--primary btn--block" id="settings-save-btn">Save changes</button>
+  </div>
+</div>
+
+<div id="toast" class="toast" hidden></div>
+
+<!-- Firebase SDKs (compat build — simplest to drop into a static page) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+<script src="firebase-config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
