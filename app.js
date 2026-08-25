@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Vinewatch — focus timer
+   Pomocashodoro — focus timer
    Vanilla JS, Firebase Auth + Firestore for accounts and online storage.
    ========================================================================== */
 
@@ -103,10 +103,8 @@ async function loadUserData() {
   settings = Object.assign(settings, data.settings || {});
   applySettingsToForm();
 
-  // record today's access + compute streak
   const dates = new Set(data.accessDates || []);
   const today = todayKey();
-  const alreadyToday = dates.has(today);
   dates.add(today);
   const accessDates = Array.from(dates).sort();
   await userRef.set({ accessDates }, { merge: true });
@@ -120,7 +118,7 @@ async function loadUserData() {
 }
 
 function todayKey(d = new Date()) {
-  return d.toISOString().slice(0, 10); // YYYY-MM-DD
+  return d.toISOString().slice(0, 10);
 }
 
 function computeStreak(sortedDates) {
@@ -128,7 +126,6 @@ function computeStreak(sortedDates) {
   const set = new Set(sortedDates);
   let streak = 0;
   let cursor = new Date();
-  // if today isn't logged yet allow starting from yesterday
   if (!set.has(todayKey(cursor))) cursor.setDate(cursor.getDate() - 1);
   while (set.has(todayKey(cursor))) {
     streak++;
@@ -141,8 +138,27 @@ function computeStreak(sortedDates) {
 // SETTINGS MODAL
 // ==========================================================================
 
-$('#settings-btn').addEventListener('click', () => { $('#settings-modal').hidden = false; });
-$('#settings-close-btn').addEventListener('click', () => { $('#settings-modal').hidden = true; });
+function openSettings() {
+  $('#settings-modal').hidden = false;
+}
+
+function closeSettings() {
+  $('#settings-modal').hidden = true;
+}
+
+$('#settings-btn').addEventListener('click', openSettings);
+$('#settings-close-btn').addEventListener('click', closeSettings);
+
+// Close on backdrop click or ESC key
+$('#settings-modal').addEventListener('click', (e) => {
+  if (e.target === $('#settings-modal')) closeSettings();
+});
+
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !$('#settings-modal').hidden) {
+    closeSettings();
+  }
+});
 
 function applySettingsToForm() {
   $('#set-pomodoro').value = settings.pomodoro;
@@ -166,10 +182,25 @@ $('#settings-save-btn').addEventListener('click', async () => {
     alarmSound: $('#set-alarm-sound').value
   };
   $('#round-total').textContent = settings.rounds;
-  await db.collection('users').doc(currentUser.uid).set({ settings }, { merge: true });
-  $('#settings-modal').hidden = true;
-  if (!isRunning) resetTimerForMode(mode, true);
-  showToast('Settings saved');
+
+  if (currentUser) {
+    await db.collection('users').doc(currentUser.uid).set({ settings }, { merge: true });
+  }
+
+  closeSettings();
+
+  // Switch to Timer view if not active
+  $$('.navlink').forEach(b => b.classList.toggle('is-active', b.dataset.view === 'timer'));
+  $('#view-timer').hidden = false;
+  $('#view-report').hidden = true;
+
+  // Set to pomodoro mode, refresh duration, and start timer immediately
+  setMode('pomodoro');
+  stopTimer();
+  resetTimerForMode('pomodoro', true);
+  startTimer();
+
+  showToast('Settings saved & Pomodoro started');
 });
 
 function clampInt(val, min, max, fallback) {
@@ -230,10 +261,12 @@ $('#start-btn').addEventListener('click', () => {
 });
 
 function startTimer() {
+  if (isRunning) return;
   isRunning = true;
   endTimestamp = Date.now() + secondsLeft * 1000;
   $('#start-btn').textContent = 'PAUSE';
   $('#start-btn').classList.add('is-running');
+  renderClock();
   tickHandle = setInterval(tick, 250);
 }
 
@@ -242,6 +275,7 @@ function stopTimer() {
   clearInterval(tickHandle);
   $('#start-btn').textContent = 'START';
   $('#start-btn').classList.remove('is-running');
+  renderClock();
 }
 
 function tick() {
@@ -261,7 +295,7 @@ function renderClock() {
   const m = Math.floor(secondsLeft / 60).toString().padStart(2, '0');
   const s = Math.floor(secondsLeft % 60).toString().padStart(2, '0');
   $('#timer-clock').textContent = `${m}:${s}`;
-  document.title = isRunning ? `${m}:${s} — Vinewatch` : 'Vinewatch — Focus Timer';
+  document.title = isRunning ? `${m}:${s} — Pomocashodoro` : 'Pomocashodoro';
 }
 
 async function onIntervalComplete() {
@@ -312,7 +346,7 @@ function playAlarm() {
       osc.stop(t + 0.35);
       t += 0.4;
     });
-  } catch (e) { /* audio not available — silently ignore */ }
+  } catch (e) { /* audio unavailable */ }
 }
 
 // ==========================================================================
@@ -330,7 +364,6 @@ async function loadTasks() {
 function renderTasks() {
   const list = $('#task-list');
   list.innerHTML = '';
-  const openTasks = tasks.filter(t => !t.isDone);
   const doneCount = tasks.filter(t => t.isDone).length;
 
   $('#tasks-count').textContent = `${doneCount}/${tasks.length}`;
@@ -475,8 +508,6 @@ function renderLog(sessions) {
 }
 
 function renderBarChart(recentSessions) {
-  // Build last 7 days totals from recent sessions (good enough for the default 20-session window;
-  // for a full historical bar chart, widen the Firestore query above).
   const days = [];
   for (let i = 6; i >= 0; i--) {
     const d = new Date();
