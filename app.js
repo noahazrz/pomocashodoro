@@ -38,11 +38,9 @@ renderReportStats();
 // ---------------- Firebase Auth Binding ----------------
 const hasFirebase = typeof firebase !== 'undefined' && typeof auth !== 'undefined';
 
-if (hasFirebase) {
-  const googleProvider = new firebase.auth.GoogleAuthProvider();
-
-   $('#google-login-btn').addEventListener('click', async () => {
-  if (typeof firebase === 'undefined' || typeof auth === 'undefined') {
+// Keep this outside so the button can still show an alert toast if Firebase is missing
+$('#google-login-btn').addEventListener('click', async () => {
+  if (!hasFirebase) {
     showToast('Firebase configuration missing in firebase-config.js');
     return;
   }
@@ -55,7 +53,7 @@ if (hasFirebase) {
   }
 });
 
-
+if (hasFirebase) {
   $('#logout-btn').addEventListener('click', async () => {
     await auth.signOut();
   });
