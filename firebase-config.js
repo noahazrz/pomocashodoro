@@ -9,9 +9,9 @@ const firebaseConfig = {
   measurementId: "G-J638W7V6KT"
 };
 
-// Initialize Firebase (Compat mode)
+// Initialize Firebase (Compat)
 firebase.initializeApp(firebaseConfig);
 
-// Expose auth and db globally for app.js
-const auth = firebase.auth();
-const db = firebase.firestore();
+// Attach globally
+window.auth = firebase.auth();
+window.db = firebase.firestore();
