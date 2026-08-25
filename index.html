@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Vinewatch — Focus Timer</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍅</text></svg>">
+<title>Pomocashodoro</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐧</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
@@ -16,7 +16,7 @@
   <div class="auth-card">
     <div class="auth-brand">
       <span class="auth-brand__mark">●</span>
-      <span class="auth-brand__name">Vinewatch</span>
+      <span class="auth-brand__name">Pomocashodoro</span>
     </div>
     <p class="auth-tag">A timer for the shape of a working day.</p>
 
@@ -40,7 +40,7 @@
 
   <header class="topbar">
     <div class="topbar__brand">
-      <span class="topbar__mark">●</span> Vinewatch
+      <span class="topbar__mark">●</span> Pomocashodoro
     </div>
     <nav class="topbar__nav">
       <button class="navlink is-active" data-view="timer">Timer</button>
@@ -149,7 +149,7 @@
   <div class="modal__card">
     <div class="modal__head">
       <h2>Settings</h2>
-      <button class="iconbtn" id="settings-close-btn" aria-label="Close settings">✕</button>
+      <button type="button" class="iconbtn" id="settings-close-btn" aria-label="Close settings">✕</button>
     </div>
 
     <div class="modal__section">
@@ -189,13 +189,13 @@
       </div>
     </div>
 
-    <button class="btn btn--primary btn--block" id="settings-save-btn">Save changes</button>
+    <button type="button" class="btn btn--primary btn--block" id="settings-save-btn">Save changes</button>
   </div>
 </div>
 
 <div id="toast" class="toast" hidden></div>
 
-<!-- Firebase SDKs (compat build — simplest to drop into a static page) -->
+<!-- Firebase SDKs (compat build) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
