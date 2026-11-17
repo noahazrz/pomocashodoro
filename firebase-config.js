@@ -9,9 +9,13 @@ const firebaseConfig = {
   measurementId: "G-J638W7V6KT"
 };
 
-// Initialize Firebase (Compat)
-firebase.initializeApp(firebaseConfig);
-
-// Attach globally
-window.auth = firebase.auth();
-window.db = firebase.firestore();
+// Initialize Firebase safely (guards against ad-blockers or network restrictions)
+try {
+  if (typeof firebase !== 'undefined' && firebase.initializeApp) {
+    firebase.initializeApp(firebaseConfig);
+    window.auth = firebase.auth ? firebase.auth() : null;
+    window.db = firebase.firestore ? firebase.firestore() : null;
+  }
+} catch (e) {
+  console.warn("Firebase initialization skipped or failed:", e);
+}

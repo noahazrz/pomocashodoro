@@ -1,10 +1,9 @@
 /* ==========================================================================
-   Pomocashodoro — Focus Timer (Hybrid Local + Firebase Sync)
+   Pomocashodoro — Temporizador Pomodoro en Español
    ========================================================================== */
 
-// ---------------- State & Defaults ----------------
+// ---------------- Estado Global ----------------
 let currentUser = null;
-let currentLanguage = 'es';
 
 let settings = {
   pomodoro: 25,
@@ -30,197 +29,21 @@ let roundCurrent = 1;
 let isRunning = false;
 let tickHandle = null;
 let endTimestamp = null;
-let secondsLeft = settings.pomodoro * 60;
+let secondsLeft = 25 * 60;
 
-// Per-mode state preserves time so switching tabs/modes does not wipe progress
+// Estado independiente por cada modo para no reiniciar tiempo al cambiar
 let modeState = {
   pomodoro: { secondsLeft: 25 * 60, initialSeconds: 25 * 60 },
   short: { secondsLeft: 5 * 60, initialSeconds: 5 * 60 },
   long: { secondsLeft: 15 * 60, initialSeconds: 15 * 60 }
 };
 
-// AudioContext singleton to avoid browser autoplay restrictions
 let audioCtx = null;
 
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
-// ---------------- Translations (i18n) ----------------
-const I18N = {
-  es: {
-    timer: "Temporizador",
-    report: "Reporte",
-    signInWithGoogle: "Iniciar sesión con Google",
-    logOut: "Cerrar sesión",
-    settings: "Configuración",
-    changeTheme: "Cambiar tema de color",
-    pomodoro: "Pomodoro",
-    shortBreak: "Descanso corto",
-    longBreak: "Descanso largo",
-    start: "INICIAR",
-    pause: "PAUSAR",
-    reset: "REINICIAR",
-    resetAndLog: "Reiniciar tiempo y registrar al reporte",
-    noTaskSelected: "Ninguna tarea seleccionada",
-    shortBreakMsg: "Descanso corto — tómate un respiro",
-    longBreakMsg: "Descanso largo — descansa bien",
-    timeForBreak: "Momento de un descanso",
-    roundOf: "Ronda {cur} de {total}",
-    tasks: "Tareas",
-    addTask: "Añadir tarea",
-    whatWorkingOn: "¿En qué estás trabajando?",
-    estPomodoros: "Pomodoros est.",
-    cancel: "Cancelar",
-    save: "Guardar",
-    noTasksYet: "No tienes tareas pendientes. ¡Añade una para empezar!",
-    allTasksDone: "¡Has terminado todas tus tareas de hoy! 🎉",
-    clearFinishedTasks: "Limpiar tareas terminadas",
-    hoursFocused: "horas de enfoque",
-    daysAccessed: "días de acceso",
-    dayStreak: "días de racha",
-    focusLast7Days: "Enfoque, últimos 7 días",
-    recentSessions: "Sesiones recientes",
-    date: "Fecha",
-    task: "Tarea",
-    duration: "Duración",
-    noSessionsYet: "Aún no hay sesiones registradas — completa o reinicia un pomodoro para verlo aquí.",
-    untitledTask: "Tarea sin título",
-    saveChanges: "Guardar cambios",
-    settingsSaved: "Configuración guardada",
-    themeApplied: "Tema aplicado: {name}",
-    syncedGoogle: "Sincronizado con Google",
-    signInFailed: "Error al iniciar sesión: ",
-    firebaseMissing: "Configuración de Firebase no encontrada en firebase-config.js",
-    sessionResetLogged: "Temporizador reiniciado. Se guardaron {min} min en el reporte.",
-    timerReset: "Temporizador reiniciado.",
-    pomodoroFinished: "¡Pomodoro terminado! Tómate un descanso.",
-    breakFinished: "¡Descanso terminado! Hora de concentrarse.",
-    dayLetters: ['D', 'L', 'M', 'X', 'J', 'V', 'S'],
-    minShort: "min",
-    resetColorsConfirm: "Colores restablecidos a predeterminados.",
-    markDone: "Marcar como hecha",
-    deleteTask: "Eliminar tarea",
-    // Settings modal strings
-    timerMinutes: "Temporizador (minutos)",
-    rounds: "Rondas",
-    longBreakAfter: "Descanso largo tras",
-    pomodorosUnit: "pomodoros",
-    autoStart: "Inicio automático",
-    autoStartBreaks: "Iniciar descansos automáticamente",
-    autoStartPomodoros: "Iniciar pomodoros automáticamente",
-    alarmSound: "Sonido de alarma",
-    alarmBell: "Campana",
-    alarmDigital: "Digital",
-    alarmSilent: "Silencioso",
-    numberFont: "Tipografía de los números",
-    fontSans: "Arial Black (Predeterminado)",
-    fontMono: "Espaciada / Mono (Space Mono)",
-    fontSerif: "Clásica / Fraunces (Serif)",
-    themeAndColors: "🎨 Tema y Colores",
-    language: "Idioma",
-    langSpanish: "Español (Predeterminado)",
-    langEnglish: "English",
-    customizeColors: "Personalizar colores exactos",
-    colorBg: "Fondo",
-    colorCard: "Tarjetas",
-    colorAccent: "Acento / Botón",
-    colorText: "Texto",
-    resetColors: "Restablecer colores por defecto",
-    closeSettings: "Cerrar configuración"
-  },
-  en: {
-    timer: "Timer",
-    report: "Report",
-    signInWithGoogle: "Sign in with Google",
-    logOut: "Log out",
-    settings: "Settings",
-    changeTheme: "Change color theme",
-    pomodoro: "Pomodoro",
-    shortBreak: "Short Break",
-    longBreak: "Long Break",
-    start: "START",
-    pause: "PAUSE",
-    reset: "RESET",
-    resetAndLog: "Reset timer and log to report",
-    noTaskSelected: "No task selected",
-    shortBreakMsg: "Short break — step away for a bit",
-    longBreakMsg: "Long break — rest up",
-    timeForBreak: "Time for a break",
-    roundOf: "Round {cur} of {total}",
-    tasks: "Tasks",
-    addTask: "Add Task",
-    whatWorkingOn: "What are you working on?",
-    estPomodoros: "Est. pomodoros",
-    cancel: "Cancel",
-    save: "Save",
-    noTasksYet: "No pending tasks. Add one to start!",
-    allTasksDone: "You've finished all your tasks for today 🎉",
-    clearFinishedTasks: "Clear finished tasks",
-    hoursFocused: "hours focused",
-    daysAccessed: "days accessed",
-    dayStreak: "day streak",
-    focusLast7Days: "Focus, last 7 days",
-    recentSessions: "Recent sessions",
-    date: "Date",
-    task: "Task",
-    duration: "Duration",
-    noSessionsYet: "No sessions logged yet — finish or reset a pomodoro to see it here.",
-    untitledTask: "Untitled task",
-    saveChanges: "Save changes",
-    settingsSaved: "Settings saved",
-    themeApplied: "Theme applied: {name}",
-    syncedGoogle: "Synced with Google account",
-    signInFailed: "Sign-in failed: ",
-    firebaseMissing: "Firebase configuration missing in firebase-config.js",
-    sessionResetLogged: "Timer reset. {min} min logged to report.",
-    timerReset: "Timer reset.",
-    pomodoroFinished: "Pomodoro finished! Take a break.",
-    breakFinished: "Break finished! Time to focus.",
-    dayLetters: ['S', 'M', 'T', 'W', 'T', 'F', 'S'],
-    minShort: "min",
-    resetColorsConfirm: "Colors reset to defaults.",
-    markDone: "Mark as done",
-    deleteTask: "Delete task",
-    // Settings modal strings
-    timerMinutes: "Timer (minutes)",
-    rounds: "Rounds",
-    longBreakAfter: "Long break after",
-    pomodorosUnit: "pomodoros",
-    autoStart: "Auto start",
-    autoStartBreaks: "Auto-start breaks",
-    autoStartPomodoros: "Auto-start pomodoros",
-    alarmSound: "Alarm sound",
-    alarmBell: "Bell",
-    alarmDigital: "Digital",
-    alarmSilent: "Silent",
-    numberFont: "Number font",
-    fontSans: "Arial Black (Default)",
-    fontMono: "Monospaced (Space Mono)",
-    fontSerif: "Classic / Fraunces (Serif)",
-    themeAndColors: "🎨 Theme & Colors",
-    language: "Language",
-    langSpanish: "Español",
-    langEnglish: "English (Default)",
-    customizeColors: "Customize exact colors",
-    colorBg: "Background",
-    colorCard: "Cards",
-    colorAccent: "Accent / Button",
-    colorText: "Text",
-    resetColors: "Reset colors to defaults",
-    closeSettings: "Close settings"
-  }
-};
-
-function tr(key, params = {}) {
-  const dict = I18N[currentLanguage] || I18N.es;
-  let text = dict[key] || I18N.es[key] || key;
-  Object.keys(params).forEach(k => {
-    text = text.replace(new RegExp(`\\{${k}\\}`, 'g'), params[k]);
-  });
-  return text;
-}
-
-// ---------------- Themes Configuration ----------------
+// ---------------- Temas y Colores ----------------
 const THEMES = {
   forest: {
     name: "Verde Bosque",
@@ -296,20 +119,29 @@ const THEMES = {
   }
 };
 
-// ---------------- Initialize ----------------
-loadLocalData();
-initAudioContext();
-applyLanguage(settings.language || 'es');
-applyTheme(settings.themeKey || 'forest', settings.customColors);
-applyNumberFont(settings.numberFont || 'sans');
-applySettingsToForm();
-renderTasks();
-renderClock();
-updateRoundDisplay();
-renderReportStats();
-checkAndRestoreActiveTimer();
+// ---------------- Inicialización Principal ----------------
+function init() {
+  loadLocalData();
+  initAudioContext();
+  applyTheme(settings.themeKey || 'forest', settings.customColors);
+  applyNumberFont(settings.numberFont || 'sans');
+  applySettingsToForm();
+  renderTasks();
+  renderClock();
+  updateRoundDisplay();
+  updateTaskLabel();
+  renderReport();
+  checkAndRestoreActiveTimer();
+  setupEventListeners();
+}
 
-// ---------------- Local Storage Management ----------------
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
+
+// ---------------- Manejo de Almacenamiento Local ----------------
 function todayKey(d = new Date()) {
   const year = d.getFullYear();
   const month = String(d.getMonth() + 1).padStart(2, '0');
@@ -323,7 +155,8 @@ function loadLocalData() {
     if (s && typeof s === 'object') {
       settings = Object.assign(settings, s);
     }
-    currentLanguage = settings.language || 'es';
+    // Asegurar 100% español siempre
+    settings.language = 'es';
 
     const tData = JSON.parse(localStorage.getItem('pomocashodoro_tasks'));
     if (Array.isArray(tData)) tasks = tData;
@@ -339,11 +172,9 @@ function loadLocalData() {
       localStorage.setItem('pomocashodoro_accessDates', JSON.stringify(accessDates));
     }
 
-    // Restore activeTaskId
     const savedActiveTask = localStorage.getItem('pomocashodoro_activeTaskId');
     if (savedActiveTask) activeTaskId = savedActiveTask;
 
-    // Initialize mode state from loaded settings
     modeState = {
       pomodoro: { secondsLeft: settings.pomodoro * 60, initialSeconds: settings.pomodoro * 60 },
       short: { secondsLeft: settings.short * 60, initialSeconds: settings.short * 60 },
@@ -352,11 +183,28 @@ function loadLocalData() {
     secondsLeft = modeState[mode].secondsLeft;
 
   } catch (e) {
-    console.warn('Error loading localStorage:', e);
+    console.warn('Error al cargar localStorage:', e);
   }
 }
 
-// ---------------- Theme Management ----------------
+function saveSettingsLocally() {
+  try {
+    settings.language = 'es';
+    localStorage.setItem('pomocashodoro_settings', JSON.stringify(settings));
+  } catch (e) {}
+}
+
+function saveActiveTaskId() {
+  try {
+    if (activeTaskId) {
+      localStorage.setItem('pomocashodoro_activeTaskId', activeTaskId);
+    } else {
+      localStorage.removeItem('pomocashodoro_activeTaskId');
+    }
+  } catch (e) {}
+}
+
+// ---------------- Temas y Colores ----------------
 function applyTheme(themeKey, custom = null) {
   const root = document.documentElement;
   let colors;
@@ -391,11 +239,15 @@ function applyTheme(themeKey, custom = null) {
   root.style.setProperty('--leaf', colors.leaf);
   root.style.setProperty('--focus-ring', colors.text);
 
-  // Update pickers
-  if ($('#picker-bg')) $('#picker-bg').value = rgbToHex(colors.bg);
-  if ($('#picker-card')) $('#picker-card').value = rgbToHex(colors.card);
-  if ($('#picker-accent')) $('#picker-accent').value = rgbToHex(colors.accent);
-  if ($('#picker-text')) $('#picker-text').value = rgbToHex(colors.text);
+  const pBg = $('#picker-bg');
+  const pCard = $('#picker-card');
+  const pAccent = $('#picker-accent');
+  const pText = $('#picker-text');
+
+  if (pBg) pBg.value = rgbToHex(colors.bg);
+  if (pCard) pCard.value = rgbToHex(colors.card);
+  if (pAccent) pAccent.value = rgbToHex(colors.accent);
+  if (pText) pText.value = rgbToHex(colors.text);
 }
 
 function adjustHexColor(hex, percent) {
@@ -417,434 +269,41 @@ function rgbToHex(color) {
 
 function applyNumberFont(fontType) {
   document.body.dataset.numberFont = fontType || 'sans';
-  if ($('#set-number-font')) $('#set-number-font').value = fontType || 'sans';
+  const sel = $('#set-number-font');
+  if (sel) sel.value = fontType || 'sans';
 }
 
-// ---------------- i18n Language Management ----------------
-function applyLanguage(lang) {
-  currentLanguage = lang || 'es';
-  document.documentElement.lang = currentLanguage;
-
-  // Top bar
-  $('#nav-timer-btn').textContent = tr('timer');
-  $('#nav-report-btn').textContent = tr('report');
-  $('#google-login-text').textContent = tr('signInWithGoogle');
-  $('#logout-btn').textContent = tr('logOut');
-  $('#theme-quick-btn').title = tr('changeTheme');
-  $('#theme-quick-btn').setAttribute('aria-label', tr('changeTheme'));
-  $('#settings-btn').title = tr('settings');
-  $('#settings-btn').setAttribute('aria-label', tr('settings'));
-
-  // Mode buttons
-  $('#mode-pomodoro-btn').textContent = tr('pomodoro');
-  $('#mode-short-btn').textContent = tr('shortBreak');
-  $('#mode-long-btn').textContent = tr('longBreak');
-
-  // Timer controls
-  $('#start-btn').textContent = isRunning ? tr('pause') : tr('start');
-  $('#reset-btn-text').textContent = tr('reset');
-  $('#reset-btn').title = tr('resetAndLog');
-  $('#reset-btn').setAttribute('aria-label', tr('reset'));
-
-  updateTaskLabel();
-  updateRoundDisplay();
-
-  // Tasks panel
-  $('#tasks-title').textContent = tr('tasks');
-  $('#add-task-text').textContent = tr('addTask');
-  $('#task-title').placeholder = tr('whatWorkingOn');
-  $('#task-est-label').textContent = tr('estPomodoros');
-  $('#task-cancel-btn').textContent = tr('cancel');
-  $('#task-save-btn').textContent = tr('save');
-  $('#clear-tasks-btn').textContent = tr('clearFinishedTasks');
-
-  // Report view
-  $('#label-hours-focused').textContent = tr('hoursFocused');
-  $('#label-days-accessed').textContent = tr('daysAccessed');
-  $('#label-day-streak').textContent = tr('dayStreak');
-  $('#chart-title').textContent = tr('focusLast7Days');
-  $('#log-title').textContent = tr('recentSessions');
-  $('#th-date').textContent = tr('date');
-  $('#th-task').textContent = tr('task');
-  $('#th-duration').textContent = tr('duration');
-  $('#log-empty').textContent = tr('noSessionsYet');
-
-  // Settings modal — fully translated (BUG FIX: was hardcoded in Spanish)
-  $('#settings-heading').textContent = tr('settings');
-  $('#settings-close-btn').setAttribute('aria-label', tr('closeSettings'));
-  $('#section-timer-label').textContent = tr('timerMinutes');
-  $('#set-pomodoro-label').textContent = tr('pomodoro');
-  $('#set-short-label').textContent = tr('shortBreak');
-  $('#set-long-label').textContent = tr('longBreak');
-  $('#section-rounds-label').textContent = tr('rounds');
-  $('#set-rounds-desc').textContent = tr('longBreakAfter');
-  $('#set-rounds-unit').textContent = tr('pomodorosUnit');
-  $('#section-autostart-label').textContent = tr('autoStart');
-  $('#set-autostart-breaks-label').textContent = tr('autoStartBreaks');
-  $('#set-autostart-pomodoros-label').textContent = tr('autoStartPomodoros');
-  $('#section-alarm-label').textContent = tr('alarmSound');
-  $('#section-font-label').textContent = tr('numberFont');
-  $('#section-theme-label').textContent = tr('themeAndColors');
-  $('#section-lang-label').textContent = tr('language');
-  $('#settings-save-btn').textContent = tr('saveChanges');
-
-  // Alarm sound select options
-  const alarmSelect = $('#set-alarm-sound');
-  if (alarmSelect) {
-    alarmSelect.options[0].textContent = tr('alarmBell');
-    alarmSelect.options[1].textContent = tr('alarmDigital');
-    alarmSelect.options[2].textContent = tr('alarmSilent');
-  }
-
-  // Font select options
-  const fontSelect = $('#set-number-font');
-  if (fontSelect) {
-    fontSelect.options[0].textContent = tr('fontSans');
-    fontSelect.options[1].textContent = tr('fontMono');
-    fontSelect.options[2].textContent = tr('fontSerif');
-  }
-
-  // Language select options
-  const langSelect = $('#set-language');
-  if (langSelect) {
-    langSelect.options[0].textContent = tr('langSpanish');
-    langSelect.options[1].textContent = tr('langEnglish');
-    langSelect.value = currentLanguage;
-  }
-
-  // Custom colors section
-  $('#custom-colors-summary').textContent = tr('customizeColors');
-  $('#lbl-color-bg').textContent = tr('colorBg');
-  $('#lbl-color-card').textContent = tr('colorCard');
-  $('#lbl-color-accent').textContent = tr('colorAccent');
-  $('#lbl-color-text').textContent = tr('colorText');
-  $('#reset-colors-btn').textContent = tr('resetColors');
-
-  renderTasks();
-  if (!$('#view-report').hidden) {
-    renderReport();
-  }
-}
-
-// ---------------- Audio & Notification Initialization ----------------
-function initAudioContext() {
-  const startAudio = () => {
-    if (!audioCtx) {
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    }
-    if (audioCtx && audioCtx.state === 'suspended') {
-      audioCtx.resume();
-    }
-    window.removeEventListener('click', startAudio);
-    window.removeEventListener('keydown', startAudio);
-  };
-  window.addEventListener('click', startAudio);
-  window.addEventListener('keydown', startAudio);
-}
-
-function requestNotificationPermission() {
-  if ('Notification' in window && Notification.permission === 'default') {
-    Notification.requestPermission();
-  }
-}
-
-// ---------------- Firebase Auth Binding ----------------
-function checkFirebase() {
-  return typeof firebase !== 'undefined' && typeof window.auth !== 'undefined';
-}
-
-$('#google-login-btn').addEventListener('click', async () => {
-  if (!checkFirebase()) {
-    showToast(tr('firebaseMissing'));
-    return;
-  }
-  
-  try {
-    const googleProvider = new firebase.auth.GoogleAuthProvider();
-    await window.auth.signInWithPopup(googleProvider);
-  } catch (err) {
-    showToast(tr('signInFailed') + (err.message || err));
-  }
-});
-
-// BUG FIX: Always bind logout button, guard with checkFirebase() inside handler
-$('#logout-btn').addEventListener('click', async () => {
-  if (!checkFirebase()) return;
-  try {
-    await window.auth.signOut();
-  } catch (err) {
-    console.warn('Logout error:', err);
-  }
-});
-
-if (checkFirebase()) {
-  window.auth.onAuthStateChanged(async (user) => {
-    if (user) {
-      currentUser = user;
-      $('#google-login-btn').hidden = true;
-      $('#user-chip').hidden = false;
-      $('#user-name').textContent = user.displayName ? user.displayName.split(' ')[0] : user.email.split('@')[0];
-      await syncWithFirestore();
-      showToast(tr('syncedGoogle'));
-    } else {
-      currentUser = null;
-      $('#google-login-btn').hidden = false;
-      $('#user-chip').hidden = true;
-    }
-  });
-}
-
-async function syncWithFirestore() {
-  if (!currentUser || typeof db === 'undefined') return;
-
-  try {
-    const userRef = db.collection('users').doc(currentUser.uid);
-    const snap = await userRef.get();
-
-    if (snap.exists) {
-      const data = snap.data();
-      if (data.settings) {
-        settings = Object.assign(settings, data.settings);
-        applyTheme(settings.themeKey, settings.customColors);
-        applyNumberFont(settings.numberFont);
-        if (settings.language) applyLanguage(settings.language);
-      }
-      if (Array.isArray(data.accessDates)) {
-        accessDates = Array.from(new Set([...accessDates, ...data.accessDates]));
-      }
-      applySettingsToForm();
-    }
-
-    if (!accessDates.includes(todayKey())) accessDates.push(todayKey());
-    await userRef.set({ settings, accessDates }, { merge: true });
-
-    // Load cloud tasks
-    const taskSnap = await userRef.collection('tasks').orderBy('createdAt', 'asc').get();
-    if (!taskSnap.empty) {
-      tasks = taskSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-      renderTasks();
-    }
-
-    // Load cloud sessions
-    const sessionSnap = await userRef.collection('sessions').orderBy('completedAt', 'desc').limit(50).get();
-    if (!sessionSnap.empty) {
-      sessions = sessionSnap.docs.map(d => d.data());
-      renderReport();
-    }
-
-    renderReportStats();
-  } catch (e) {
-    console.warn('Firestore sync error:', e);
-  }
-}
-
-// ==========================================================================
-// SETTINGS MODAL & THEMES
-// ==========================================================================
-
-function openSettings() {
-  applySettingsToForm();
-  $('#settings-modal').hidden = false;
-}
-
-function closeSettings() {
-  $('#settings-modal').hidden = true;
-}
-
-$('#settings-btn').addEventListener('click', openSettings);
-$('#settings-close-btn').addEventListener('click', closeSettings);
-
-$('#settings-modal').addEventListener('click', (e) => {
-  if (e.target === $('#settings-modal')) closeSettings();
-});
-
-window.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && !$('#settings-modal').hidden) {
-    closeSettings();
-  }
-});
-
-function applySettingsToForm() {
-  $('#set-pomodoro').value = settings.pomodoro;
-  $('#set-short').value = settings.short;
-  $('#set-long').value = settings.long;
-  $('#set-rounds').value = settings.rounds;
-  $('#set-autostart-breaks').checked = !!settings.autoStartBreaks;
-  $('#set-autostart-pomodoros').checked = !!settings.autoStartPomodoros;
-  $('#set-alarm-sound').value = settings.alarmSound || 'bell';
-  $('#set-number-font').value = settings.numberFont || 'sans';
-  $('#set-language').value = currentLanguage;
-  $('#round-total').textContent = settings.rounds;
-}
-
-// Theme presets buttons
-$$('.theme-pill').forEach(btn => {
-  btn.addEventListener('click', () => {
-    const key = btn.dataset.themeKey;
-    settings.themeKey = key;
-    settings.customColors = null;
-    applyTheme(key, null);
-    saveSettingsLocally();
-    showToast(tr('themeApplied', { name: THEMES[key].name }));
-  });
-});
-
-// Custom color pickers
-function onCustomColorChange() {
-  const custom = {
-    bg: $('#picker-bg').value,
-    card: $('#picker-card').value,
-    accent: $('#picker-accent').value,
-    text: $('#picker-text').value
-  };
-  settings.themeKey = 'custom';
-  settings.customColors = custom;
-  applyTheme('custom', custom);
-  saveSettingsLocally();
-}
-
-$('#picker-bg').addEventListener('input', onCustomColorChange);
-$('#picker-card').addEventListener('input', onCustomColorChange);
-$('#picker-accent').addEventListener('input', onCustomColorChange);
-$('#picker-text').addEventListener('input', onCustomColorChange);
-
-$('#reset-colors-btn').addEventListener('click', () => {
-  settings.themeKey = 'forest';
-  settings.customColors = null;
-  applyTheme('forest', null);
-  saveSettingsLocally();
-  showToast(tr('resetColorsConfirm'));
-});
-
-// Quick theme switch button in header (cycles through presets)
-const themeKeys = Object.keys(THEMES);
-$('#theme-quick-btn').addEventListener('click', () => {
-  let currentIndex = themeKeys.indexOf(settings.themeKey);
-  if (currentIndex === -1) currentIndex = 0;
-  const nextKey = themeKeys[(currentIndex + 1) % themeKeys.length];
-  settings.themeKey = nextKey;
-  settings.customColors = null;
-  applyTheme(nextKey, null);
-  saveSettingsLocally();
-  showToast(tr('themeApplied', { name: THEMES[nextKey].name }));
-});
-
-// Save Settings from modal
-$('#settings-save-btn').addEventListener('click', async () => {
-  const prevPomo = settings.pomodoro;
-  const prevShort = settings.short;
-  const prevLong = settings.long;
-
-  settings.pomodoro = clampInt($('#set-pomodoro').value, 1, 90, 25);
-  settings.short = clampInt($('#set-short').value, 1, 60, 5);
-  settings.long = clampInt($('#set-long').value, 1, 90, 15);
-  settings.rounds = clampInt($('#set-rounds').value, 2, 12, 4);
-  settings.autoStartBreaks = $('#set-autostart-breaks').checked;
-  settings.autoStartPomodoros = $('#set-autostart-pomodoros').checked;
-  settings.alarmSound = $('#set-alarm-sound').value;
-  settings.numberFont = $('#set-number-font').value;
-  settings.language = $('#set-language').value;
-
-  applyNumberFont(settings.numberFont);
-  applyLanguage(settings.language);
-
-  // Update mode durations if changed and timer is not currently running in that mode
-  if (settings.pomodoro !== prevPomo && (!isRunning || mode !== 'pomodoro')) {
-    modeState.pomodoro.initialSeconds = settings.pomodoro * 60;
-    modeState.pomodoro.secondsLeft = settings.pomodoro * 60;
-  }
-  if (settings.short !== prevShort && (!isRunning || mode !== 'short')) {
-    modeState.short.initialSeconds = settings.short * 60;
-    modeState.short.secondsLeft = settings.short * 60;
-  }
-  if (settings.long !== prevLong && (!isRunning || mode !== 'long')) {
-    modeState.long.initialSeconds = settings.long * 60;
-    modeState.long.secondsLeft = settings.long * 60;
-  }
-
-  if (!isRunning) {
-    secondsLeft = modeState[mode].secondsLeft;
-    renderClock();
-  }
-
-  saveSettingsLocally();
-  if (currentUser && typeof db !== 'undefined') {
-    db.collection('users').doc(currentUser.uid).set({ settings }, { merge: true });
-  }
-
-  $('#round-total').textContent = settings.rounds;
-  closeSettings();
-  showToast(tr('settingsSaved'));
-});
-
-function saveSettingsLocally() {
-  localStorage.setItem('pomocashodoro_settings', JSON.stringify(settings));
-}
-
-function clampInt(val, min, max, fallback) {
-  const n = parseInt(val, 10);
-  if (Number.isNaN(n)) return fallback;
-  return Math.min(max, Math.max(min, n));
-}
-
-// ==========================================================================
-// NAVIGATION (Tabs: Timer <-> Report)
-// ==========================================================================
-
-$$('.navlink').forEach(btn => {
-  btn.addEventListener('click', () => {
-    $$('.navlink').forEach(b => b.classList.remove('is-active'));
-    btn.classList.add('is-active');
-    const view = btn.dataset.view;
-    $('#view-timer').hidden = view !== 'timer';
-    $('#view-report').hidden = view !== 'report';
-    if (view === 'report') renderReport();
-    // BUG FIX: switching views (Timer <-> Report) no longer touches the timer state
-  });
-});
-
-// ==========================================================================
-// TIMER & TABS (Mode Tabs: Pomodoro <-> Short <-> Long)
-// ==========================================================================
-
+// ---------------- Temporizador ----------------
 function getModeDurationSeconds(m) {
   const min = m === 'pomodoro' ? settings.pomodoro : (m === 'short' ? settings.short : settings.long);
   return min * 60;
 }
 
-// Mode tabs event listener - preserves progress!
-$$('.mode-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    const targetMode = btn.dataset.mode;
-    if (mode === targetMode) return;
-    setMode(targetMode);
-  });
-});
-
 function setMode(newMode) {
-  // 1. Save current active mode remaining time
+  // 1. Guardar el tiempo restante del modo actual
   if (modeState[mode]) {
     modeState[mode].secondsLeft = secondsLeft;
   }
 
-  // If timer was running, pause it gracefully without resetting elapsed time
+  // 2. Si estaba corriendo, pausar sin perder el progreso
   if (isRunning) {
     stopTimer();
   }
 
-  // 2. Switch mode
+  // 3. Cambiar a nuevo modo
   mode = newMode;
 
-  // 3. Restore target mode remaining time
+  // 4. Restaurar tiempo del nuevo modo
   if (!modeState[mode]) {
     const dur = getModeDurationSeconds(mode);
     modeState[mode] = { secondsLeft: dur, initialSeconds: dur };
   }
   secondsLeft = modeState[mode].secondsLeft;
 
-  // 4. Update UI
+  // 5. Actualizar interfaz
   $$('.mode-btn').forEach(b => b.classList.toggle('is-active', b.dataset.mode === mode));
-  $('#timer-card').classList.toggle('is-break', mode !== 'pomodoro');
+  const card = $('#timer-card');
+  if (card) card.classList.toggle('is-break', mode !== 'pomodoro');
   updateTaskLabel();
   renderClock();
   saveTimerState();
@@ -852,18 +311,21 @@ function setMode(newMode) {
 
 function updateTaskLabel() {
   const el = $('#timer-task-label');
+  if (!el) return;
   if (mode === 'pomodoro') {
-    el.textContent = activeTaskLabel() || tr('noTaskSelected');
+    el.textContent = activeTaskLabel() || 'Ninguna tarea seleccionada';
   } else if (mode === 'short') {
-    el.textContent = tr('shortBreakMsg');
+    el.textContent = 'Descanso corto — tómate un respiro';
   } else {
-    el.textContent = tr('longBreakMsg');
+    el.textContent = 'Descanso largo — descansa bien';
   }
 }
 
 function updateRoundDisplay() {
-  $('#round-current').textContent = Math.min(roundCurrent, settings.rounds);
-  $('#round-total').textContent = settings.rounds;
+  const cur = $('#round-current');
+  const tot = $('#round-total');
+  if (cur) cur.textContent = Math.min(roundCurrent, settings.rounds);
+  if (tot) tot.textContent = settings.rounds;
 }
 
 function activeTaskLabel() {
@@ -871,47 +333,15 @@ function activeTaskLabel() {
   return item ? item.title : '';
 }
 
-// START / PAUSE Button
-$('#start-btn').addEventListener('click', () => {
-  requestNotificationPermission();
-  if (isRunning) {
-    stopTimer();
-  } else {
-    startTimer();
-  }
-});
-
-// REINICIAR (Reset) Button next to Start
-$('#reset-btn').addEventListener('click', () => {
-  const initial = modeState[mode].initialSeconds || getModeDurationSeconds(mode);
-  const elapsedSec = Math.max(0, initial - secondsLeft);
-
-  // If at least 15 seconds elapsed, send elapsed time to the report
-  if (elapsedSec >= 15) {
-    const elapsedMinutes = elapsedSec < 60 ? 1 : Math.round(elapsedSec / 60);
-    logSession(mode, elapsedMinutes);
-    showToast(tr('sessionResetLogged', { min: elapsedMinutes }));
-  } else {
-    showToast(tr('timerReset'));
-  }
-
-  // Stop running and reset clock to full duration
-  stopTimer();
-  secondsLeft = getModeDurationSeconds(mode);
-  modeState[mode].secondsLeft = secondsLeft;
-  modeState[mode].initialSeconds = secondsLeft;
-  renderClock();
-  saveTimerState();
-  // BUG FIX: always refresh the report view so the new session appears immediately
-  renderReport();
-});
-
 function startTimer() {
   if (isRunning) return;
   isRunning = true;
   endTimestamp = Date.now() + secondsLeft * 1000;
-  $('#start-btn').textContent = tr('pause');
-  $('#start-btn').classList.add('is-running');
+  const startBtn = $('#start-btn');
+  if (startBtn) {
+    startBtn.textContent = 'PAUSAR';
+    startBtn.classList.add('is-running');
+  }
   renderClock();
   saveTimerState();
   clearInterval(tickHandle);
@@ -925,8 +355,11 @@ function stopTimer() {
   if (modeState[mode]) {
     modeState[mode].secondsLeft = secondsLeft;
   }
-  $('#start-btn').textContent = tr('start');
-  $('#start-btn').classList.remove('is-running');
+  const startBtn = $('#start-btn');
+  if (startBtn) {
+    startBtn.textContent = 'INICIAR';
+    startBtn.classList.remove('is-running');
+  }
   renderClock();
   saveTimerState();
 }
@@ -944,17 +377,22 @@ function tick() {
     clearInterval(tickHandle);
     isRunning = false;
     endTimestamp = null;
-    $('#start-btn').textContent = tr('start');
-    $('#start-btn').classList.remove('is-running');
+    const startBtn = $('#start-btn');
+    if (startBtn) {
+      startBtn.textContent = 'INICIAR';
+      startBtn.classList.remove('is-running');
+    }
     saveTimerState();
     onIntervalComplete();
   }
 }
 
 function renderClock() {
+  const clockEl = $('#timer-clock');
+  if (!clockEl) return;
   const m = Math.floor(secondsLeft / 60).toString().padStart(2, '0');
   const s = Math.floor(secondsLeft % 60).toString().padStart(2, '0');
-  $('#timer-clock').textContent = `${m}:${s}`;
+  clockEl.textContent = `${m}:${s}`;
   document.title = isRunning ? `${m}:${s} — Pomocashodoro` : 'Pomocashodoro';
 }
 
@@ -993,10 +431,33 @@ function setModeSilently(newMode) {
   secondsLeft = dur;
 
   $$('.mode-btn').forEach(b => b.classList.toggle('is-active', b.dataset.mode === mode));
-  $('#timer-card').classList.toggle('is-break', mode !== 'pomodoro');
+  const card = $('#timer-card');
+  if (card) card.classList.toggle('is-break', mode !== 'pomodoro');
   updateTaskLabel();
   renderClock();
   saveTimerState();
+}
+
+// ---------------- Sonido y Notificaciones ----------------
+function initAudioContext() {
+  const startAudio = () => {
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioCtx && audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
+    window.removeEventListener('click', startAudio);
+    window.removeEventListener('keydown', startAudio);
+  };
+  window.addEventListener('click', startAudio);
+  window.addEventListener('keydown', startAudio);
+}
+
+function requestNotificationPermission() {
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
 }
 
 function playAlarm() {
@@ -1030,7 +491,7 @@ function playAlarm() {
 function notifyDesktop() {
   if ('Notification' in window && Notification.permission === 'granted') {
     const title = 'Pomocashodoro';
-    const body = mode === 'pomodoro' ? tr('pomodoroFinished') : tr('breakFinished');
+    const body = mode === 'pomodoro' ? '¡Pomodoro terminado! Tómate un descanso.' : '¡Descanso terminado! Hora de concentrarse.';
     try {
       new Notification(title, {
         body,
@@ -1040,7 +501,7 @@ function notifyDesktop() {
   }
 }
 
-// ---------------- Background Tab & Browser Tab Visibility ----------------
+// ---------------- Persistencia del Temporizador al cambiar pestaña ----------------
 function saveTimerState() {
   try {
     const state = {
@@ -1073,7 +534,6 @@ function checkAndRestoreActiveTimer() {
         endTimestamp = state.endTimestamp;
         startTimer();
       } else {
-        // Expired while tab was closed/inactive
         secondsLeft = 0;
         renderClock();
         onIntervalComplete();
@@ -1084,12 +544,12 @@ function checkAndRestoreActiveTimer() {
     }
     updateRoundDisplay();
     $$('.mode-btn').forEach(b => b.classList.toggle('is-active', b.dataset.mode === mode));
-    $('#timer-card').classList.toggle('is-break', mode !== 'pomodoro');
+    const card = $('#timer-card');
+    if (card) card.classList.toggle('is-break', mode !== 'pomodoro');
     updateTaskLabel();
   } catch (e) {}
 }
 
-// When returning to tab, synchronize immediately without waiting for tick
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden && isRunning && endTimestamp) {
     tick();
@@ -1101,38 +561,39 @@ window.addEventListener('focus', () => {
   }
 });
 
-// ==========================================================================
-// TASKS
-// ==========================================================================
-
+// ---------------- Tareas ----------------
 function renderTasks() {
   const list = $('#task-list');
+  if (!list) return;
   list.innerHTML = '';
   const doneCount = tasks.filter(tk => tk.isDone).length;
 
-  $('#tasks-count').textContent = `${doneCount}/${tasks.length}`;
+  const countEl = $('#tasks-count');
+  if (countEl) countEl.textContent = `${doneCount}/${tasks.length}`;
 
   const emptyEl = $('#tasks-empty');
-  if (tasks.length === 0) {
-    emptyEl.hidden = false;
-    emptyEl.textContent = tr('noTasksYet');
-  } else if (doneCount === tasks.length) {
-    emptyEl.hidden = false;
-    emptyEl.textContent = tr('allTasksDone');
-  } else {
-    emptyEl.hidden = true;
+  if (emptyEl) {
+    if (tasks.length === 0) {
+      emptyEl.hidden = false;
+      emptyEl.textContent = 'No tienes tareas pendientes. ¡Añade una para empezar!';
+    } else if (doneCount === tasks.length) {
+      emptyEl.hidden = false;
+      emptyEl.textContent = '¡Has terminado todas tus tareas de hoy! 🎉';
+    } else {
+      emptyEl.hidden = true;
+    }
   }
 
   tasks.forEach(task => {
     const li = document.createElement('li');
     li.className = 'task-item' + (task.isDone ? ' is-done' : '') + (task.id === activeTaskId ? ' is-active' : '');
     li.innerHTML = `
-      <button type="button" class="task-item__check" data-id="${task.id}" aria-label="${tr('markDone')}"></button>
+      <button type="button" class="task-item__check" data-id="${task.id}" aria-label="Marcar como hecha"></button>
       <div class="task-item__body" data-id="${task.id}">
         <div class="task-item__title">${escapeHtml(task.title)}</div>
         <div class="task-item__est">${task.doneCount || 0}/${task.estPomodoros} 🍅</div>
       </div>
-      <button type="button" class="task-item__del" data-id="${task.id}" aria-label="${tr('deleteTask')}">✕</button>
+      <button type="button" class="task-item__del" data-id="${task.id}" aria-label="Eliminar tarea">✕</button>
     `;
     list.appendChild(li);
   });
@@ -1142,7 +603,7 @@ function renderTasks() {
       activeTaskId = el.dataset.id;
       saveActiveTaskId();
       renderTasks();
-      if (mode === 'pomodoro') $('#timer-task-label').textContent = activeTaskLabel();
+      if (mode === 'pomodoro') updateTaskLabel();
     });
   });
   list.querySelectorAll('.task-item__check').forEach(el => {
@@ -1159,59 +620,15 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
-$('#add-task-btn').addEventListener('click', () => {
-  $('#add-task-btn').hidden = true;
-  $('#task-form').hidden = false;
-  $('#task-title').focus();
-});
-
-$('#task-cancel-btn').addEventListener('click', () => {
-  $('#task-form').hidden = true;
-  $('#add-task-btn').hidden = false;
-  $('#task-form').reset();
-});
-
-$('#task-form').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const title = $('#task-title').value.trim();
-  const est = clampInt($('#task-est').value, 1, 12, 1);
-  if (!title) return;
-
-  const newTask = {
-    id: Date.now().toString(),
-    title,
-    estPomodoros: est,
-    doneCount: 0,
-    isDone: false
-  };
-
-  tasks.push(newTask);
-  if (!activeTaskId) {
-    activeTaskId = newTask.id;
-    saveActiveTaskId();
-    if (mode === 'pomodoro') $('#timer-task-label').textContent = title;
-  }
-
-  saveTasks();
-  if (currentUser && typeof db !== 'undefined') {
-    db.collection('users').doc(currentUser.uid).collection('tasks').doc(newTask.id).set({
-      ...newTask, createdAt: firebase.firestore.FieldValue.serverTimestamp()
-    });
-  }
-
-  renderTasks();
-  $('#task-form').hidden = true;
-  $('#add-task-btn').hidden = false;
-  $('#task-form').reset();
-});
-
 function toggleTaskDone(id) {
   const task = tasks.find(tk => tk.id === id);
   if (!task) return;
   task.isDone = !task.isDone;
   saveTasks();
-  if (currentUser && typeof db !== 'undefined') {
-    db.collection('users').doc(currentUser.uid).collection('tasks').doc(id).update({ isDone: task.isDone });
+  if (currentUser && window.db) {
+    try {
+      window.db.collection('users').doc(currentUser.uid).collection('tasks').doc(id).update({ isDone: task.isDone });
+    } catch (e) {}
   }
   renderTasks();
 }
@@ -1221,11 +638,13 @@ function deleteTask(id) {
   if (activeTaskId === id) {
     activeTaskId = null;
     saveActiveTaskId();
-    if (mode === 'pomodoro') $('#timer-task-label').textContent = tr('noTaskSelected');
+    if (mode === 'pomodoro') updateTaskLabel();
   }
   saveTasks();
-  if (currentUser && typeof db !== 'undefined') {
-    db.collection('users').doc(currentUser.uid).collection('tasks').doc(id).delete();
+  if (currentUser && window.db) {
+    try {
+      window.db.collection('users').doc(currentUser.uid).collection('tasks').doc(id).delete();
+    } catch (e) {}
   }
   renderTasks();
 }
@@ -1236,68 +655,45 @@ function incrementTaskDone(id) {
   task.doneCount = (task.doneCount || 0) + 1;
   if (task.doneCount >= task.estPomodoros) task.isDone = true;
   saveTasks();
-  if (currentUser && typeof db !== 'undefined') {
-    db.collection('users').doc(currentUser.uid).collection('tasks').doc(id).update({
-      doneCount: task.doneCount, isDone: task.isDone
-    });
+  if (currentUser && window.db) {
+    try {
+      window.db.collection('users').doc(currentUser.uid).collection('tasks').doc(id).update({
+        doneCount: task.doneCount, isDone: task.isDone
+      });
+    } catch (e) {}
   }
   renderTasks();
 }
-
-$('#clear-tasks-btn').addEventListener('click', () => {
-  const doneIds = tasks.filter(tk => tk.isDone).map(tk => tk.id);
-  tasks = tasks.filter(tk => !tk.isDone);
-  if (activeTaskId && doneIds.includes(activeTaskId)) {
-    activeTaskId = null;
-    saveActiveTaskId();
-    if (mode === 'pomodoro') $('#timer-task-label').textContent = tr('noTaskSelected');
-  }
-  saveTasks();
-  if (currentUser && typeof db !== 'undefined') {
-    const batch = db.batch();
-    doneIds.forEach(id => batch.delete(db.collection('users').doc(currentUser.uid).collection('tasks').doc(id)));
-    batch.commit();
-  }
-  renderTasks();
-});
 
 function saveTasks() {
-  localStorage.setItem('pomocashodoro_tasks', JSON.stringify(tasks));
+  try {
+    localStorage.setItem('pomocashodoro_tasks', JSON.stringify(tasks));
+  } catch (e) {}
 }
 
-// BUG FIX: persist activeTaskId so it survives page reloads
-function saveActiveTaskId() {
-  if (activeTaskId) {
-    localStorage.setItem('pomocashodoro_activeTaskId', activeTaskId);
-  } else {
-    localStorage.removeItem('pomocashodoro_activeTaskId');
-  }
-}
-
-// ==========================================================================
-// SESSIONS / REPORT
-// ==========================================================================
-
+// ---------------- Reporte y Sesiones ----------------
 function logSession(sessionMode, minutes) {
   const safeMinutes = Math.max(1, Math.round(Number(minutes) || 1));
   const s = {
     mode: sessionMode,
     minutes: safeMinutes,
-    taskTitle: sessionMode === 'pomodoro' ? (activeTaskLabel() || tr('untitledTask')) : (tr(sessionMode === 'short' ? 'shortBreak' : 'longBreak')),
+    taskTitle: sessionMode === 'pomodoro' ? (activeTaskLabel() || 'Sesión de enfoque') : (sessionMode === 'short' ? 'Descanso corto' : 'Descanso largo'),
     dateKey: todayKey()
   };
   sessions.unshift(s);
-  localStorage.setItem('pomocashodoro_sessions', JSON.stringify(sessions));
+  try {
+    localStorage.setItem('pomocashodoro_sessions', JSON.stringify(sessions));
+  } catch (e) {}
 
-  if (currentUser && typeof db !== 'undefined') {
-    db.collection('users').doc(currentUser.uid).collection('sessions').add({
-      ...s, completedAt: firebase.firestore.FieldValue.serverTimestamp()
-    });
+  if (currentUser && window.db && typeof firebase !== 'undefined') {
+    try {
+      window.db.collection('users').doc(currentUser.uid).collection('sessions').add({
+        ...s, completedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    } catch (e) {}
   }
 
-  // BUG FIX: update total hours immediately when logging a session
-  renderReportStats();
-  renderTotalHours();
+  renderReport();
 }
 
 function renderReport() {
@@ -1309,30 +705,34 @@ function renderReport() {
 
 function renderLog() {
   const body = $('#log-body');
+  if (!body) return;
   body.innerHTML = '';
-  // BUG FIX: Show all session types (pomodoro + resets from any mode), not just pomodoro
-  const allSessions = sessions;
-  $('#log-empty').hidden = allSessions.length !== 0;
+  const emptyEl = $('#log-empty');
+  if (emptyEl) emptyEl.hidden = sessions.length !== 0;
 
-  allSessions.slice(0, 30).forEach(s => {
+  sessions.slice(0, 30).forEach(s => {
     const tr_el = document.createElement('tr');
-    const modeLabel = s.mode === 'pomodoro' ? '🍅' : (s.mode === 'short' ? '☕' : '🌿');
-    tr_el.innerHTML = `<td>${s.dateKey}</td><td>${modeLabel} ${escapeHtml(s.taskTitle || '—')}</td><td>${s.minutes} ${tr('minShort')}</td>`;
+    const modeEmoji = s.mode === 'pomodoro' ? '🍅' : (s.mode === 'short' ? '☕' : '🌿');
+    tr_el.innerHTML = `<td>${s.dateKey}</td><td>${modeEmoji} ${escapeHtml(s.taskTitle || '—')}</td><td>${s.minutes} min</td>`;
     body.appendChild(tr_el);
   });
 }
 
 function renderBarChart() {
-  const dayLetters = I18N[currentLanguage]?.dayLetters || I18N.es.dayLetters;
+  const chart = $('#bar-chart');
+  if (!chart) return;
+  chart.innerHTML = '';
+
+  const dayLetters = ['D', 'L', 'M', 'X', 'J', 'V', 'S'];
   const days = [];
 
   for (let i = 6; i >= 0; i--) {
     const d = new Date();
     d.setDate(d.getDate() - i);
-    const dayOfWeek = d.getDay(); // 0 is Sunday
+    const dayOfWeek = d.getDay();
     days.push({
       key: todayKey(d),
-      label: dayLetters[dayOfWeek] || d.toLocaleDateString(undefined, { weekday: 'short' })[0],
+      label: dayLetters[dayOfWeek],
       minutes: 0
     });
   }
@@ -1343,26 +743,28 @@ function renderBarChart() {
   });
 
   const max = Math.max(1, ...days.map(d => d.minutes));
-  const chart = $('#bar-chart');
-  chart.innerHTML = '';
 
   days.forEach(d => {
     const col = document.createElement('div');
     col.className = 'bar-chart__col';
-    const heightPct = Math.max(2, (d.minutes / max) * 100);
+    const heightPct = Math.max(3, (d.minutes / max) * 100);
     col.innerHTML = `<div class="bar-chart__bar" style="height:${heightPct}%" title="${d.minutes} min"></div><span class="bar-chart__label">${d.label}</span>`;
     chart.appendChild(col);
   });
 }
 
 function renderTotalHours() {
+  const totalHoursEl = $('#stat-total-hours');
+  if (!totalHoursEl) return;
   const totalMinutes = sessions.filter(s => s.mode === 'pomodoro').reduce((sum, s) => sum + (Number(s.minutes) || 0), 0);
-  $('#stat-total-hours').textContent = (totalMinutes / 60).toFixed(1) + 'h';
+  totalHoursEl.textContent = (totalMinutes / 60).toFixed(1) + 'h';
 }
 
 function renderReportStats() {
-  $('#stat-days-accessed').textContent = accessDates.length;
-  $('#stat-streak').textContent = computeStreak(accessDates);
+  const daysEl = $('#stat-days-accessed');
+  const streakEl = $('#stat-streak');
+  if (daysEl) daysEl.textContent = accessDates.length;
+  if (streakEl) streakEl.textContent = computeStreak(accessDates);
 }
 
 function computeStreak(dates) {
@@ -1370,7 +772,6 @@ function computeStreak(dates) {
   const set = new Set(dates);
   let streak = 0;
   let cursor = new Date();
-  // BUG FIX: check today first, then yesterday, to handle both cases correctly
   if (!set.has(todayKey(cursor))) {
     cursor.setDate(cursor.getDate() - 1);
     if (!set.has(todayKey(cursor))) return 0;
@@ -1382,14 +783,452 @@ function computeStreak(dates) {
   return streak;
 }
 
-// ==========================================================================
-// TOAST NOTIFICATIONS
-// ==========================================================================
+// ---------------- Modal de Configuración ----------------
+function openSettings() {
+  applySettingsToForm();
+  const m = $('#settings-modal');
+  if (m) m.hidden = false;
+}
 
+function closeSettings() {
+  const m = $('#settings-modal');
+  if (m) m.hidden = true;
+}
+
+function applySettingsToForm() {
+  const setP = $('#set-pomodoro');
+  const setS = $('#set-short');
+  const setL = $('#set-long');
+  const setR = $('#set-rounds');
+  const setAB = $('#set-autostart-breaks');
+  const setAP = $('#set-autostart-pomodoros');
+  const setAS = $('#set-alarm-sound');
+  const setNF = $('#set-number-font');
+  const rTot = $('#round-total');
+
+  if (setP) setP.value = settings.pomodoro;
+  if (setS) setS.value = settings.short;
+  if (setL) setL.value = settings.long;
+  if (setR) setR.value = settings.rounds;
+  if (setAB) setAB.checked = !!settings.autoStartBreaks;
+  if (setAP) setAP.checked = !!settings.autoStartPomodoros;
+  if (setAS) setAS.value = settings.alarmSound || 'bell';
+  if (setNF) setNF.value = settings.numberFont || 'sans';
+  if (rTot) rTot.textContent = settings.rounds;
+}
+
+function clampInt(val, min, max, fallback) {
+  const n = parseInt(val, 10);
+  if (Number.isNaN(n)) return fallback;
+  return Math.min(max, Math.max(min, n));
+}
+
+// ---------------- Modal de Temas y Colores ----------------
+function openThemeModal() {
+  const tm = $('#theme-modal');
+  if (tm) tm.hidden = false;
+}
+
+function closeThemeModal() {
+  const tm = $('#theme-modal');
+  if (tm) tm.hidden = true;
+}
+
+// ---------------- Notificaciones Toast ----------------
 function showToast(msg) {
   const tEl = $('#toast');
+  if (!tEl) return;
   tEl.textContent = msg;
   tEl.hidden = false;
   clearTimeout(showToast._h);
-  showToast._h = setTimeout(() => { tEl.hidden = true; }, 2400);
+  showToast._h = setTimeout(() => { tEl.hidden = true; }, 2600);
+}
+
+// ---------------- Registro de Event Listeners ----------------
+function setupEventListeners() {
+  // 1. Navegación entre pestañas (Temporizador <-> Reporte)
+  // No reinicia ni afecta el temporizador en ejecución
+  $$('.navlink').forEach(btn => {
+    btn.addEventListener('click', () => {
+      $$('.navlink').forEach(b => b.classList.remove('is-active'));
+      btn.classList.add('is-active');
+      const view = btn.dataset.view;
+      const vTimer = $('#view-timer');
+      const vReport = $('#view-report');
+      if (vTimer) vTimer.hidden = view !== 'timer';
+      if (vReport) vReport.hidden = view !== 'report';
+      if (view === 'report') renderReport();
+    });
+  });
+
+  // 2. Modos del temporizador (Pomodoro <-> Descanso corto <-> Descanso largo)
+  $$('.mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const targetMode = btn.dataset.mode;
+      if (mode === targetMode) return;
+      setMode(targetMode);
+    });
+  });
+
+  // 3. Botón de INICIAR / PAUSAR
+  const startBtn = $('#start-btn');
+  if (startBtn) {
+    startBtn.addEventListener('click', () => {
+      requestNotificationPermission();
+      if (isRunning) {
+        stopTimer();
+      } else {
+        startTimer();
+      }
+    });
+  }
+
+  // 4. Botón de REINICIAR (Reset)
+  const resetBtn = $('#reset-btn');
+  if (resetBtn) {
+    resetBtn.addEventListener('click', () => {
+      // Feedback visual inmediato con animación de rotación
+      resetBtn.classList.add('is-spinning');
+      setTimeout(() => resetBtn.classList.remove('is-spinning'), 450);
+
+      const initial = modeState[mode].initialSeconds || getModeDurationSeconds(mode);
+      const elapsedSec = Math.max(0, initial - secondsLeft);
+
+      // Si pasaron al menos 5 segundos, sumar y registrar en el reporte
+      if (elapsedSec >= 5) {
+        const elapsedMinutes = Math.max(1, Math.round(elapsedSec / 60));
+        logSession(mode, elapsedMinutes);
+        showToast(`Tiempo guardado: ${elapsedMinutes} min en el reporte.`);
+      } else {
+        showToast('Temporizador reiniciado.');
+      }
+
+      // Detener y reiniciar reloj a la duración completa
+      stopTimer();
+      const fullDur = getModeDurationSeconds(mode);
+      secondsLeft = fullDur;
+      modeState[mode].secondsLeft = fullDur;
+      modeState[mode].initialSeconds = fullDur;
+      renderClock();
+      saveTimerState();
+      renderReport();
+    });
+  }
+
+  // 5. Botón de Color (🎨) en el header: ABRE EL SELECTOR DE COLORES
+  const themeQuickBtn = $('#theme-quick-btn');
+  if (themeQuickBtn) {
+    themeQuickBtn.addEventListener('click', () => {
+      openThemeModal();
+    });
+  }
+
+  // Cerrar modal de temas
+  const themeCloseBtn = $('#theme-close-btn');
+  if (themeCloseBtn) themeCloseBtn.addEventListener('click', closeThemeModal);
+  const themeDoneBtn = $('#theme-done-btn');
+  if (themeDoneBtn) themeDoneBtn.addEventListener('click', closeThemeModal);
+
+  const themeModal = $('#theme-modal');
+  if (themeModal) {
+    themeModal.addEventListener('click', (e) => {
+      if (e.target === themeModal) closeThemeModal();
+    });
+  }
+
+  // 6. Selección de Temas Predefinidos
+  $$('.theme-pill').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const key = btn.dataset.themeKey;
+      settings.themeKey = key;
+      settings.customColors = null;
+      applyTheme(key, null);
+      saveSettingsLocally();
+      showToast(`Tema aplicado: ${THEMES[key].name}`);
+    });
+  });
+
+  // 7. Personalización de colores exactos
+  function onCustomColorChange() {
+    const custom = {
+      bg: $('#picker-bg').value,
+      card: $('#picker-card').value,
+      accent: $('#picker-accent').value,
+      text: $('#picker-text').value
+    };
+    settings.themeKey = 'custom';
+    settings.customColors = custom;
+    applyTheme('custom', custom);
+    saveSettingsLocally();
+  }
+
+  const pBg = $('#picker-bg');
+  const pCard = $('#picker-card');
+  const pAccent = $('#picker-accent');
+  const pText = $('#picker-text');
+
+  if (pBg) pBg.addEventListener('input', onCustomColorChange);
+  if (pCard) pCard.addEventListener('input', onCustomColorChange);
+  if (pAccent) pAccent.addEventListener('input', onCustomColorChange);
+  if (pText) pText.addEventListener('input', onCustomColorChange);
+
+  const resetColorsBtn = $('#reset-colors-btn');
+  if (resetColorsBtn) {
+    resetColorsBtn.addEventListener('click', () => {
+      settings.themeKey = 'forest';
+      settings.customColors = null;
+      applyTheme('forest', null);
+      saveSettingsLocally();
+      showToast('Colores restablecidos a predeterminados.');
+    });
+  }
+
+  // 8. Modal de Configuración (⚙)
+  const settingsBtn = $('#settings-btn');
+  if (settingsBtn) settingsBtn.addEventListener('click', openSettings);
+  const settingsCloseBtn = $('#settings-close-btn');
+  if (settingsCloseBtn) settingsCloseBtn.addEventListener('click', closeSettings);
+
+  const settingsModal = $('#settings-modal');
+  if (settingsModal) {
+    settingsModal.addEventListener('click', (e) => {
+      if (e.target === settingsModal) closeSettings();
+    });
+  }
+
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closeSettings();
+      closeThemeModal();
+    }
+  });
+
+  // Guardar configuración
+  const settingsSaveBtn = $('#settings-save-btn');
+  if (settingsSaveBtn) {
+    settingsSaveBtn.addEventListener('click', () => {
+      const prevPomo = settings.pomodoro;
+      const prevShort = settings.short;
+      const prevLong = settings.long;
+
+      settings.pomodoro = clampInt($('#set-pomodoro').value, 1, 90, 25);
+      settings.short = clampInt($('#set-short').value, 1, 60, 5);
+      settings.long = clampInt($('#set-long').value, 1, 90, 15);
+      settings.rounds = clampInt($('#set-rounds').value, 2, 12, 4);
+      settings.autoStartBreaks = $('#set-autostart-breaks').checked;
+      settings.autoStartPomodoros = $('#set-autostart-pomodoros').checked;
+      settings.alarmSound = $('#set-alarm-sound').value;
+      settings.numberFont = $('#set-number-font').value;
+      settings.language = 'es';
+
+      applyNumberFont(settings.numberFont);
+
+      if (settings.pomodoro !== prevPomo && (!isRunning || mode !== 'pomodoro')) {
+        modeState.pomodoro.initialSeconds = settings.pomodoro * 60;
+        modeState.pomodoro.secondsLeft = settings.pomodoro * 60;
+      }
+      if (settings.short !== prevShort && (!isRunning || mode !== 'short')) {
+        modeState.short.initialSeconds = settings.short * 60;
+        modeState.short.secondsLeft = settings.short * 60;
+      }
+      if (settings.long !== prevLong && (!isRunning || mode !== 'long')) {
+        modeState.long.initialSeconds = settings.long * 60;
+        modeState.long.secondsLeft = settings.long * 60;
+      }
+
+      if (!isRunning) {
+        secondsLeft = modeState[mode].secondsLeft;
+        renderClock();
+      }
+
+      saveSettingsLocally();
+      if (currentUser && window.db) {
+        try {
+          window.db.collection('users').doc(currentUser.uid).set({ settings }, { merge: true });
+        } catch (e) {}
+      }
+
+      updateRoundDisplay();
+      closeSettings();
+      showToast('Configuración guardada.');
+    });
+  }
+
+  // 9. Tareas
+  const addTaskBtn = $('#add-task-btn');
+  const taskForm = $('#task-form');
+  const taskTitle = $('#task-title');
+  const taskCancelBtn = $('#task-cancel-btn');
+
+  if (addTaskBtn && taskForm) {
+    addTaskBtn.addEventListener('click', () => {
+      addTaskBtn.hidden = true;
+      taskForm.hidden = false;
+      if (taskTitle) taskTitle.focus();
+    });
+  }
+
+  if (taskCancelBtn && taskForm && addTaskBtn) {
+    taskCancelBtn.addEventListener('click', () => {
+      taskForm.hidden = true;
+      addTaskBtn.hidden = false;
+      taskForm.reset();
+    });
+  }
+
+  if (taskForm) {
+    taskForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const title = $('#task-title').value.trim();
+      const est = clampInt($('#task-est').value, 1, 12, 1);
+      if (!title) return;
+
+      const newTask = {
+        id: Date.now().toString(),
+        title,
+        estPomodoros: est,
+        doneCount: 0,
+        isDone: false
+      };
+
+      tasks.push(newTask);
+      if (!activeTaskId) {
+        activeTaskId = newTask.id;
+        saveActiveTaskId();
+        if (mode === 'pomodoro') updateTaskLabel();
+      }
+
+      saveTasks();
+      if (currentUser && window.db && typeof firebase !== 'undefined') {
+        try {
+          window.db.collection('users').doc(currentUser.uid).collection('tasks').doc(newTask.id).set({
+            ...newTask, createdAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+        } catch (e) {}
+      }
+
+      renderTasks();
+      taskForm.hidden = true;
+      if (addTaskBtn) addTaskBtn.hidden = false;
+      taskForm.reset();
+    });
+  }
+
+  const clearTasksBtn = $('#clear-tasks-btn');
+  if (clearTasksBtn) {
+    clearTasksBtn.addEventListener('click', () => {
+      const doneIds = tasks.filter(tk => tk.isDone).map(tk => tk.id);
+      tasks = tasks.filter(tk => !tk.isDone);
+      if (activeTaskId && doneIds.includes(activeTaskId)) {
+        activeTaskId = null;
+        saveActiveTaskId();
+        if (mode === 'pomodoro') updateTaskLabel();
+      }
+      saveTasks();
+      if (currentUser && window.db) {
+        try {
+          const batch = window.db.batch();
+          doneIds.forEach(id => batch.delete(window.db.collection('users').doc(currentUser.uid).collection('tasks').doc(id)));
+          batch.commit();
+        } catch (e) {}
+      }
+      renderTasks();
+    });
+  }
+
+  // 10. Firebase Auth
+  const googleLoginBtn = $('#google-login-btn');
+  if (googleLoginBtn) {
+    googleLoginBtn.addEventListener('click', async () => {
+      if (!window.auth || typeof firebase === 'undefined') {
+        showToast('Configuración de Firebase no disponible');
+        return;
+      }
+      try {
+        const provider = new firebase.auth.GoogleAuthProvider();
+        await window.auth.signInWithPopup(provider);
+      } catch (err) {
+        showToast('Error al iniciar sesión: ' + (err.message || err));
+      }
+    });
+  }
+
+  const logoutBtn = $('#logout-btn');
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', async () => {
+      if (window.auth) {
+        try {
+          await window.auth.signOut();
+        } catch (err) {
+          console.warn('Error al cerrar sesión:', err);
+        }
+      }
+    });
+  }
+
+  if (window.auth) {
+    try {
+      window.auth.onAuthStateChanged(async (user) => {
+        if (user) {
+          currentUser = user;
+          const gBtn = $('#google-login-btn');
+          const chip = $('#user-chip');
+          const uName = $('#user-name');
+          if (gBtn) gBtn.hidden = true;
+          if (chip) chip.hidden = false;
+          if (uName) uName.textContent = user.displayName ? user.displayName.split(' ')[0] : user.email.split('@')[0];
+          await syncWithFirestore();
+          showToast('Sincronizado con Google');
+        } else {
+          currentUser = null;
+          const gBtn = $('#google-login-btn');
+          const chip = $('#user-chip');
+          if (gBtn) gBtn.hidden = false;
+          if (chip) chip.hidden = true;
+        }
+      });
+    } catch (e) {}
+  }
+}
+
+async function syncWithFirestore() {
+  if (!currentUser || !window.db) return;
+
+  try {
+    const userRef = window.db.collection('users').doc(currentUser.uid);
+    const snap = await userRef.get();
+
+    if (snap.exists) {
+      const data = snap.data();
+      if (data.settings) {
+        settings = Object.assign(settings, data.settings);
+        settings.language = 'es';
+        applyTheme(settings.themeKey, settings.customColors);
+        applyNumberFont(settings.numberFont);
+      }
+      if (Array.isArray(data.accessDates)) {
+        accessDates = Array.from(new Set([...accessDates, ...data.accessDates]));
+      }
+      applySettingsToForm();
+    }
+
+    if (!accessDates.includes(todayKey())) accessDates.push(todayKey());
+    await userRef.set({ settings, accessDates }, { merge: true });
+
+    const taskSnap = await userRef.collection('tasks').orderBy('createdAt', 'asc').get();
+    if (!taskSnap.empty) {
+      tasks = taskSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderTasks();
+    }
+
+    const sessionSnap = await userRef.collection('sessions').orderBy('completedAt', 'desc').limit(50).get();
+    if (!sessionSnap.empty) {
+      sessions = sessionSnap.docs.map(d => d.data());
+      renderReport();
+    }
+
+    renderReportStats();
+  } catch (e) {
+    console.warn('Error al sincronizar con Firestore:', e);
+  }
 }
