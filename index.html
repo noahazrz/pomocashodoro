@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -18,8 +18,8 @@
       <span class="topbar__mark">●</span> Pomocashodoro
     </div>
     <nav class="topbar__nav">
-      <button type="button" class="navlink is-active" data-view="timer">Timer</button>
-      <button type="button" class="navlink" data-view="report">Report</button>
+      <button type="button" class="navlink is-active" data-view="timer" id="nav-timer-btn">Temporizador</button>
+      <button type="button" class="navlink" data-view="report" id="nav-report-btn">Reporte</button>
     </nav>
     <div class="topbar__user">
       <!-- Direct Sign-In Button -->
@@ -30,65 +30,78 @@
           <path fill="#FBBC05" d="M3.95 10.69A5.4 5.4 0 0 1 3.67 9c0-.59.1-1.16.28-1.69V4.98H.96A9 9 0 0 0 0 9c0 1.45.35 2.83.96 4.02l2.99-2.33z"/>
           <path fill="#EA4335" d="M9 3.58c1.32 0 2.51.46 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .96 4.98l2.99 2.33C4.66 5.17 6.65 3.58 9 3.58z"/>
         </svg>
-        Sign in with Google
+        <span id="google-login-text">Iniciar sesión con Google</span>
       </button>
 
       <!-- Active User Chip (Hidden until signed in) -->
       <div class="user-chip" id="user-chip" hidden>
         <span id="user-name">—</span>
-        <button type="button" class="linkbtn" id="logout-btn">Log out</button>
+        <button type="button" class="linkbtn" id="logout-btn">Cerrar sesión</button>
       </div>
 
-      <button type="button" class="iconbtn" id="settings-btn" title="Settings" aria-label="Open settings">⚙</button>
+      <!-- Quick Theme Button -->
+      <button type="button" class="iconbtn" id="theme-quick-btn" title="Cambiar tema de color" aria-label="Cambiar tema de color">🎨</button>
+      <button type="button" class="iconbtn" id="settings-btn" title="Configuración" aria-label="Abrir configuración">⚙</button>
     </div>
   </header>
 
   <!-- ---------------- TIMER VIEW ---------------- -->
   <main id="view-timer" class="view">
-    <section class="mode-switch" role="tablist" aria-label="Timer mode">
-      <button type="button" class="mode-btn is-active" data-mode="pomodoro" role="tab">Pomodoro</button>
-      <button type="button" class="mode-btn" data-mode="short" role="tab">Short Break</button>
-      <button type="button" class="mode-btn" data-mode="long" role="tab">Long Break</button>
+    <section class="mode-switch" role="tablist" aria-label="Modo de temporizador">
+      <button type="button" class="mode-btn is-active" data-mode="pomodoro" role="tab" id="mode-pomodoro-btn">Pomodoro</button>
+      <button type="button" class="mode-btn" data-mode="short" role="tab" id="mode-short-btn">Descanso corto</button>
+      <button type="button" class="mode-btn" data-mode="long" role="tab" id="mode-long-btn">Descanso largo</button>
     </section>
 
     <section class="timer-card" id="timer-card">
       <div class="timer-clock" id="timer-clock">25:00</div>
-      <div class="timer-task" id="timer-task-label">No task selected</div>
-      <button type="button" class="btn btn--start" id="start-btn">START</button>
+      <div class="timer-task" id="timer-task-label">Ninguna tarea seleccionada</div>
+      
+      <!-- Action buttons: START and RESET side by side -->
+      <div class="timer-controls">
+        <button type="button" class="btn btn--start" id="start-btn">INICIAR</button>
+        <button type="button" class="btn btn--reset" id="reset-btn" title="Reiniciar tiempo y registrar al reporte" aria-label="Reiniciar tiempo">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+            <path d="M3 3v5h5"/>
+          </svg>
+          <span id="reset-btn-text">REINICIAR</span>
+        </button>
+      </div>
     </section>
 
     <section class="round-counter" id="round-counter">
-      <span>Round <strong id="round-current">1</strong> of <strong id="round-total">4</strong></span>
+      <span>Ronda <strong id="round-current">1</strong> de <strong id="round-total">4</strong></span>
     </section>
 
     <section class="tasks-panel">
       <div class="tasks-panel__head">
-        <h2>Tasks</h2>
+        <h2 id="tasks-title">Tareas</h2>
         <span class="tasks-panel__count" id="tasks-count">0/0</span>
       </div>
 
       <ul id="task-list" class="task-list"></ul>
 
       <button type="button" class="add-task-btn" id="add-task-btn">
-        <span class="add-task-btn__plus">+</span> Add Task
+        <span class="add-task-btn__plus">+</span> <span id="add-task-text">Añadir tarea</span>
       </button>
 
       <form id="task-form" class="task-form" hidden>
-        <input type="text" id="task-title" placeholder="What are you working on?" required>
+        <input type="text" id="task-title" placeholder="¿En qué estás trabajando?" required>
         <div class="task-form__row">
           <label class="task-form__est">
-            Est. pomodoros
+            <span id="task-est-label">Pomodoros est.</span>
             <input type="number" id="task-est" min="1" max="12" value="1">
           </label>
           <div class="task-form__actions">
-            <button type="button" class="btn btn--ghost" id="task-cancel-btn">Cancel</button>
-            <button type="submit" class="btn btn--primary">Save</button>
+            <button type="button" class="btn btn--ghost" id="task-cancel-btn">Cancelar</button>
+            <button type="submit" class="btn btn--primary" id="task-save-btn">Guardar</button>
           </div>
         </div>
       </form>
 
-      <p class="tasks-empty" id="tasks-empty" hidden>You've finished all your tasks for today 🎉</p>
-      <button type="button" class="linkbtn linkbtn--muted" id="clear-tasks-btn">Clear finished tasks</button>
+      <p class="tasks-empty" id="tasks-empty" hidden>¡Has terminado todas tus tareas de hoy! 🎉</p>
+      <button type="button" class="linkbtn linkbtn--muted" id="clear-tasks-btn">Limpiar tareas terminadas</button>
     </section>
   </main>
 
@@ -97,36 +110,40 @@
     <section class="summary-grid">
       <div class="summary-card">
         <span class="summary-card__value" id="stat-total-hours">0h</span>
-        <span class="summary-card__label">hours focused</span>
+        <span class="summary-card__label" id="label-hours-focused">horas de enfoque</span>
       </div>
       <div class="summary-card">
         <span class="summary-card__value" id="stat-days-accessed">1</span>
-        <span class="summary-card__label">days accessed</span>
+        <span class="summary-card__label" id="label-days-accessed">días de acceso</span>
       </div>
       <div class="summary-card">
         <span class="summary-card__value" id="stat-streak">1</span>
-        <span class="summary-card__label">day streak</span>
+        <span class="summary-card__label" id="label-day-streak">días de racha</span>
       </div>
     </section>
 
     <section class="chart-card">
       <div class="chart-card__head">
-        <h2>Focus, last 7 days</h2>
+        <h2 id="chart-title">Enfoque, últimos 7 días</h2>
       </div>
       <div class="bar-chart" id="bar-chart"></div>
     </section>
 
     <section class="log-card">
       <div class="chart-card__head">
-        <h2>Recent sessions</h2>
+        <h2 id="log-title">Sesiones recientes</h2>
       </div>
       <table class="log-table">
         <thead>
-          <tr><th>Date</th><th>Task</th><th>Duration</th></tr>
+          <tr>
+            <th id="th-date">Fecha</th>
+            <th id="th-task">Tarea</th>
+            <th id="th-duration">Duración</th>
+          </tr>
         </thead>
         <tbody id="log-body"></tbody>
       </table>
-      <p class="log-empty" id="log-empty" hidden>No sessions logged yet — finish a pomodoro to see it here.</p>
+      <p class="log-empty" id="log-empty" hidden>Aún no hay sesiones registradas — completa o reinicia un pomodoro para verlo aquí.</p>
     </section>
   </main>
 
@@ -136,48 +153,131 @@
 <div id="settings-modal" class="modal" hidden>
   <div class="modal__card">
     <div class="modal__head">
-      <h2>Settings</h2>
-      <button type="button" class="iconbtn" id="settings-close-btn" aria-label="Close settings">✕</button>
+      <h2 id="settings-heading">Configuración</h2>
+      <button type="button" class="iconbtn" id="settings-close-btn" aria-label="Cerrar configuración">✕</button>
     </div>
 
+    <!-- Timer Durations -->
     <div class="modal__section">
-      <h3>Timer (minutes)</h3>
+      <h3 id="section-timer-label">Temporizador (minutos)</h3>
       <div class="settings-row">
-        <label>Pomodoro <input type="number" id="set-pomodoro" min="1" max="90" value="25"></label>
-        <label>Short Break <input type="number" id="set-short" min="1" max="60" value="5"></label>
-        <label>Long Break <input type="number" id="set-long" min="1" max="90" value="15"></label>
+        <label><span id="set-pomodoro-label">Pomodoro</span> <input type="number" id="set-pomodoro" min="1" max="90" value="25"></label>
+        <label><span id="set-short-label">Descanso corto</span> <input type="number" id="set-short" min="1" max="60" value="5"></label>
+        <label><span id="set-long-label">Descanso largo</span> <input type="number" id="set-long" min="1" max="90" value="15"></label>
       </div>
     </div>
 
+    <!-- Rounds -->
     <div class="modal__section">
-      <h3>Rounds</h3>
+      <h3 id="section-rounds-label">Rondas</h3>
       <div class="settings-row">
-        <label>Long break after <input type="number" id="set-rounds" min="2" max="12" value="4"> pomodoros</label>
+        <label><span id="set-rounds-desc">Descanso largo tras</span> <input type="number" id="set-rounds" min="2" max="12" value="4"> <span id="set-rounds-unit">pomodoros</span></label>
       </div>
     </div>
 
+    <!-- Auto start -->
     <div class="modal__section">
-      <h3>Auto start</h3>
+      <h3 id="section-autostart-label">Inicio automático</h3>
       <label class="switch-row">
-        <input type="checkbox" id="set-autostart-breaks"> Auto start breaks
+        <input type="checkbox" id="set-autostart-breaks"> <span id="set-autostart-breaks-label">Iniciar descansos automáticamente</span>
       </label>
       <label class="switch-row">
-        <input type="checkbox" id="set-autostart-pomodoros"> Auto start pomodoros
+        <input type="checkbox" id="set-autostart-pomodoros"> <span id="set-autostart-pomodoros-label">Iniciar pomodoros automáticamente</span>
       </label>
     </div>
 
+    <!-- Alarm sound -->
     <div class="modal__section">
-      <h3>Alarm sound</h3>
+      <h3 id="section-alarm-label">Sonido de alarma</h3>
       <div class="settings-row">
         <select id="set-alarm-sound">
-          <option value="bell">Bell</option>
+          <option value="bell">Campana</option>
           <option value="digital">Digital</option>
-          <option value="none">Silent</option>
+          <option value="none">Silencioso</option>
         </select>
       </div>
     </div>
 
-    <button type="button" class="btn btn--primary btn--block" id="settings-save-btn">Save changes</button>
+    <!-- Number Font style -->
+    <div class="modal__section">
+      <h3 id="section-font-label">Tipografía de los números</h3>
+      <div class="settings-row">
+        <select id="set-number-font">
+          <option value="sans" selected>Normal / Arial Bold (Predeterminado)</option>
+          <option value="mono">Espaciada / Mono (Space Mono)</option>
+          <option value="serif">Clásica / Fraunces (Serif)</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Colors and Theme Customization -->
+    <div class="modal__section">
+      <h3 id="section-theme-label">🎨 Tema y Colores</h3>
+      <div class="theme-presets" id="theme-presets">
+        <!-- Injected via JS or pre-rendered -->
+        <button type="button" class="theme-pill is-active" data-theme-key="forest" title="Verde Bosque">
+          <span class="theme-swatch" style="background:#17281f; border-color:#e8543c"></span>
+          <span>Verde Bosque</span>
+        </button>
+        <button type="button" class="theme-pill" data-theme-key="ocean" title="Azul Océano">
+          <span class="theme-swatch" style="background:#131e3a; border-color:#0284c7"></span>
+          <span>Azul Océano</span>
+        </button>
+        <button type="button" class="theme-pill" data-theme-key="burgundy" title="Borgoña Vino">
+          <span class="theme-swatch" style="background:#28141b; border-color:#e11d48"></span>
+          <span>Borgoña Vino</span>
+        </button>
+        <button type="button" class="theme-pill" data-theme-key="purple" title="Púrpura Galáctico">
+          <span class="theme-swatch" style="background:#1e1438; border-color:#9333ea"></span>
+          <span>Púrpura</span>
+        </button>
+        <button type="button" class="theme-pill" data-theme-key="dark" title="Carbón Minimalista">
+          <span class="theme-swatch" style="background:#1a1a1f; border-color:#10b981"></span>
+          <span>Carbón OLED</span>
+        </button>
+        <button type="button" class="theme-pill" data-theme-key="sunset" title="Café Atardecer">
+          <span class="theme-swatch" style="background:#291e18; border-color:#ea580c"></span>
+          <span>Café Atardecer</span>
+        </button>
+      </div>
+
+      <!-- Custom Color Pickers -->
+      <details class="theme-custom-details">
+        <summary id="custom-colors-summary">Personalizar colores exactos</summary>
+        <div class="custom-colors-grid">
+          <label class="color-picker-item">
+            <span id="lbl-color-bg">Fondo</span>
+            <input type="color" id="picker-bg" value="#12211c">
+          </label>
+          <label class="color-picker-item">
+            <span id="lbl-color-card">Tarjetas</span>
+            <input type="color" id="picker-card" value="#17281f">
+          </label>
+          <label class="color-picker-item">
+            <span id="lbl-color-accent">Acento / Botón</span>
+            <input type="color" id="picker-accent" value="#e8543c">
+          </label>
+          <label class="color-picker-item">
+            <span id="lbl-color-text">Texto</span>
+            <input type="color" id="picker-text" value="#f2ede1">
+          </label>
+        </div>
+        <button type="button" class="linkbtn linkbtn--reset-colors" id="reset-colors-btn">Restablecer colores por defecto</button>
+      </details>
+    </div>
+
+    <!-- Language Selector -->
+    <div class="modal__section">
+      <h3 id="section-lang-label">Idioma</h3>
+      <div class="settings-row">
+        <select id="set-language">
+          <option value="es" selected>Español (Predeterminado)</option>
+          <option value="en">English</option>
+        </select>
+      </div>
+    </div>
+
+    <button type="button" class="btn btn--primary btn--block" id="settings-save-btn">Guardar cambios</button>
   </div>
 </div>
 
