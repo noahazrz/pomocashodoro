@@ -428,6 +428,8 @@ button {
   border-bottom: 1px solid var(--green-800);
   font-family: var(--font-body);
 }
+.log-table .log-date { white-space: nowrap; padding-right: 0.75rem; }
+.log-time { color: var(--bone-dim); font-variant-numeric: tabular-nums; margin-left: 0.25rem; }
 .log-empty { color: var(--bone-dim); font-size: 0.85rem; text-align: center; margin: 1rem 0 0; }
 
 /* ============ Modals ============ */

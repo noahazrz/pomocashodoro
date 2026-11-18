@@ -402,6 +402,11 @@ function onIntervalComplete() {
 
   const fullDuration = getModeDurationSeconds(mode) / 60;
 
+  // El modo que acaba de terminar vuelve a su duración completa. Si no, se queda
+  // guardado en 00:00 y al volver a esa pestaña hay que darle a REINICIAR a mano
+  // (lo que además registraba otra vez el tiempo completo en el reporte).
+  modeState[mode] = { secondsLeft: fullDuration * 60, initialSeconds: fullDuration * 60 };
+
   if (mode === 'pomodoro') {
     logSession('pomodoro', fullDuration);
     if (activeTaskId) incrementTaskDone(activeTaskId);
@@ -526,6 +531,18 @@ function checkAndRestoreActiveTimer() {
     if (state.mode) mode = state.mode;
     if (state.roundCurrent) roundCurrent = state.roundCurrent;
     if (state.modeState) modeState = state.modeState;
+
+    // Reparar modos que quedaron en 00:00 (o con valores inválidos) por el fallo anterior
+    ['pomodoro', 'short', 'long'].forEach(m => {
+      const full = getModeDurationSeconds(m);
+      const ms = modeState[m];
+      const invalid = !ms || typeof ms.secondsLeft !== 'number' || ms.secondsLeft <= 0 || ms.secondsLeft > full;
+      if (invalid) modeState[m] = { secondsLeft: full, initialSeconds: full };
+      else if (!ms.initialSeconds) ms.initialSeconds = full;
+    });
+    if (!state.isRunning && typeof state.secondsLeft === 'number' && state.secondsLeft <= 0) {
+      state.secondsLeft = modeState[mode].secondsLeft;
+    }
 
     if (state.isRunning && state.endTimestamp) {
       const remainingMs = state.endTimestamp - Date.now();
@@ -678,7 +695,8 @@ function logSession(sessionMode, minutes) {
     mode: sessionMode,
     minutes: safeMinutes,
     taskTitle: sessionMode === 'pomodoro' ? (activeTaskLabel() || 'Sesión de enfoque') : (sessionMode === 'short' ? 'Descanso corto' : 'Descanso largo'),
-    dateKey: todayKey()
+    dateKey: todayKey(),
+    ts: Date.now()
   };
   sessions.unshift(s);
   try {
@@ -703,6 +721,22 @@ function renderReport() {
   renderReportStats();
 }
 
+// Hora local de una sesión. Las sesiones antiguas (sin `ts`) no tienen hora guardada;
+// las de Firestore la sacan de `completedAt`.
+function sessionTimeParts(s) {
+  let ms = Number(s.ts);
+  if (!ms && s.completedAt && typeof s.completedAt.toMillis === 'function') {
+    ms = s.completedAt.toMillis();
+  }
+  if (!ms) return null;
+  const d = new Date(ms);
+  const pad = (n) => String(n).padStart(2, '0');
+  return {
+    short: `${pad(d.getHours())}:${pad(d.getMinutes())}`,
+    full: `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+  };
+}
+
 function renderLog() {
   const body = $('#log-body');
   if (!body) return;
@@ -713,7 +747,11 @@ function renderLog() {
   sessions.slice(0, 30).forEach(s => {
     const tr_el = document.createElement('tr');
     const modeEmoji = s.mode === 'pomodoro' ? '🍅' : (s.mode === 'short' ? '☕' : '🌿');
-    tr_el.innerHTML = `<td>${s.dateKey}</td><td>${modeEmoji} ${escapeHtml(s.taskTitle || '—')}</td><td>${s.minutes} min</td>`;
+    const t = sessionTimeParts(s);
+    const dateCell = t
+      ? `${s.dateKey} <span class="log-time" title="${t.full}">${t.short}</span>`
+      : `${s.dateKey}`;
+    tr_el.innerHTML = `<td class="log-date">${dateCell}</td><td>${modeEmoji} ${escapeHtml(s.taskTitle || '—')}</td><td>${s.minutes} min</td>`;
     body.appendChild(tr_el);
   });
 }
@@ -895,7 +933,7 @@ function setupEventListeners() {
       const elapsedSec = Math.max(0, initial - secondsLeft);
 
       // Si pasaron al menos 5 segundos, sumar y registrar en el reporte
-      if (elapsedSec >= 5) {
+      if (secondsLeft > 0 && elapsedSec >= 5) {
         const elapsedMinutes = Math.max(1, Math.round(elapsedSec / 60));
         logSession(mode, elapsedMinutes);
         showToast(`Tiempo guardado: ${elapsedMinutes} min en el reporte.`);
