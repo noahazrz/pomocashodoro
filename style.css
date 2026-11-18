@@ -607,3 +607,37 @@ button {
   opacity: 0.9;
   transform: translateY(-1px);
 }
+
+
+/* ============ Reporte: pestañas, tarjetas, periodo y ranking ============ */
+.report-tabs { display: flex; gap: 0.25rem; background: var(--green-900); border: 1px solid var(--green-700); border-radius: 12px; padding: 0.25rem; margin-bottom: 1.5rem; }
+.report-tab { flex: 1; background: transparent; border: 0; color: var(--bone-dim); font: 600 0.85rem var(--font-body); padding: 0.6rem 0.4rem; border-radius: 9px; cursor: pointer; }
+.report-tab.is-active { background: var(--green-800); color: var(--bone); }
+
+.summary-card { display: flex; flex-direction: column; align-items: center; gap: 0.15rem; background: color-mix(in srgb, var(--tomato) 10%, var(--green-900)); }
+.summary-card__icon { width: 30px; height: 30px; color: var(--tomato); margin-bottom: 0.35rem; }
+.summary-card--streak .summary-card__icon, .summary-card--streak .summary-card__value { color: #ff8a1f; }
+.summary-card--streak.is-hot { border-color: #ff8a1f; background: color-mix(in srgb, #ff8a1f 14%, var(--green-900)); box-shadow: 0 0 18px rgba(255, 138, 31, 0.35); }
+.summary-card--streak.is-hot .summary-card__icon { fill: rgba(255, 138, 31, 0.35); transform-origin: 50% 90%; animation: flame 1.1s ease-in-out infinite alternate; }
+@keyframes flame { from { transform: scale(1) rotate(-3deg); } to { transform: scale(1.15) rotate(3deg); } }
+@media (prefers-reduced-motion: reduce) { .summary-card--streak.is-hot .summary-card__icon { animation: none; } }
+
+.chart-card__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem; margin-bottom: 1rem; }
+.chart-card__head h2 { margin: 0; }
+.period-switch { display: flex; background: var(--green-800); border-radius: 10px; padding: 0.2rem; }
+.period-btn { background: transparent; border: 0; color: var(--bone-dim); font: 600 0.8rem var(--font-body); padding: 0.35rem 0.8rem; border-radius: 8px; cursor: pointer; }
+.period-btn.is-active { background: var(--tomato); color: #fff; }
+.period-nav { display: flex; align-items: center; justify-content: center; gap: 1rem; font-weight: 600; }
+.navbtn { background: var(--green-800); border: 1px solid var(--green-700); color: var(--bone); width: 2rem; height: 2rem; border-radius: 50%; cursor: pointer; font-size: 1.1rem; line-height: 1; }
+.navbtn:disabled { opacity: 0.35; cursor: default; }
+.period-total { text-align: center; color: var(--bone-dim); font-size: 0.8rem; margin: 0.25rem 0 1rem; }
+.bar-chart--dense { gap: 2px; }
+.bar-chart--dense .bar-chart__label { font-size: 0.6rem; }
+
+.rank-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+.rank-row { display: grid; grid-template-columns: 2.2rem 1fr auto; align-items: center; gap: 0.5rem; padding: 0.6rem 0.75rem; border: 1px solid var(--green-700); border-radius: 10px; background: var(--green-800); }
+.rank-row.is-me { border-color: var(--tomato); }
+.rank-pos { text-align: center; font-size: 1.2rem; font-weight: 700; }
+.rank-name { font-weight: 600; display: block; }
+.rank-bar { display: block; height: 4px; border-radius: 2px; background: var(--tomato); margin-top: 0.35rem; }
+.rank-hours { font-family: var(--font-numbers); color: var(--tomato); font-size: 0.95rem; }

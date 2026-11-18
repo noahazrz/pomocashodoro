@@ -714,6 +714,13 @@ function logSession(sessionMode, minutes) {
       window.db.collection('users').doc(currentUser.uid).collection('sessions').add({
         ...s, completedAt: firebase.firestore.FieldValue.serverTimestamp()
       });
+      if (sessionMode === 'pomodoro') {
+        window.db.collection('leaderboard').doc(currentUser.uid).set({
+          name: publicName(currentUser),
+          minutes: firebase.firestore.FieldValue.increment(safeMinutes),
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true }).catch(() => {});
+      }
     } catch (e) {}
   }
 
@@ -762,39 +769,94 @@ function renderLog() {
   });
 }
 
+let reportPeriod = 'week';
+let reportOffset = 0;
+const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+const fmtMin = (m) => m < 60 ? `${m} min` : `${(m / 60).toFixed(1)} h`;
+
+// Barras del periodo elegido (semana lunes-domingo, días del mes, meses del año)
+function periodBuckets() {
+  const now = new Date(); now.setHours(12, 0, 0, 0);
+  const buckets = [];
+  let label = '';
+  if (reportPeriod === 'week') {
+    const start = new Date(now);
+    start.setDate(now.getDate() - ((now.getDay() + 6) % 7) + reportOffset * 7);
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(start); d.setDate(start.getDate() + i);
+      buckets.push({ key: todayKey(d), label: 'LMXJVSD'[i], minutes: 0 });
+    }
+    const end = new Date(start); end.setDate(start.getDate() + 6);
+    label = `${start.getDate()} ${MESES[start.getMonth()].slice(0, 3)} – ${end.getDate()} ${MESES[end.getMonth()].slice(0, 3)} ${end.getFullYear()}`;
+  } else if (reportPeriod === 'month') {
+    const first = new Date(now.getFullYear(), now.getMonth() + reportOffset, 1, 12);
+    const days = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
+    for (let i = 1; i <= days; i++) {
+      const d = new Date(first.getFullYear(), first.getMonth(), i, 12);
+      buckets.push({ key: todayKey(d), label: (i === 1 || i % 5 === 0) ? String(i) : '', minutes: 0 });
+    }
+    label = `${MESES[first.getMonth()]} ${first.getFullYear()}`;
+  } else {
+    const y = now.getFullYear() + reportOffset;
+    for (let m = 0; m < 12; m++) {
+      buckets.push({ key: `${y}-${String(m + 1).padStart(2, '0')}`, label: 'EFMAMJJASOND'[m], minutes: 0 });
+    }
+    label = String(y);
+  }
+  return { buckets, label };
+}
+
 function renderBarChart() {
   const chart = $('#bar-chart');
   if (!chart) return;
-  chart.innerHTML = '';
-
-  const dayLetters = ['D', 'L', 'M', 'X', 'J', 'V', 'S'];
-  const days = [];
-
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    const dayOfWeek = d.getDay();
-    days.push({
-      key: todayKey(d),
-      label: dayLetters[dayOfWeek],
-      minutes: 0
-    });
-  }
-
+  const { buckets, label } = periodBuckets();
   sessions.filter(s => s.mode === 'pomodoro').forEach(s => {
-    const day = days.find(d => d.key === s.dateKey);
-    if (day) day.minutes += Number(s.minutes) || 0;
+    const b = buckets.find(bk => (s.dateKey || '').startsWith(bk.key));
+    if (b) b.minutes += Number(s.minutes) || 0;
   });
+  const max = Math.max(1, ...buckets.map(b => b.minutes));
+  const total = buckets.reduce((t, b) => t + b.minutes, 0);
+  chart.classList.toggle('bar-chart--dense', buckets.length > 12);
+  chart.innerHTML = buckets.map(b => {
+    const h = Math.max(3, (b.minutes / max) * 100);
+    return `<div class="bar-chart__col"><div class="bar-chart__bar" style="height:${h}%" title="${b.key}: ${fmtMin(b.minutes)}"></div><span class="bar-chart__label">${b.label}</span></div>`;
+  }).join('');
+  const lbl = $('#period-label'); if (lbl) lbl.textContent = label;
+  const tot = $('#period-total'); if (tot) tot.textContent = `Total del periodo: ${fmtMin(total)}`;
+  const nx = $('#period-next'); if (nx) nx.disabled = reportOffset >= 0;
+  $$('.period-btn').forEach(b => b.classList.toggle('is-active', b.dataset.period === reportPeriod));
+}
 
-  const max = Math.max(1, ...days.map(d => d.minutes));
+// ---------------- Ranking (colección pública "leaderboard") ----------------
+function publicName(user) {
+  return user && user.displayName ? user.displayName.split(' ')[0] : 'Anónimo';
+}
 
-  days.forEach(d => {
-    const col = document.createElement('div');
-    col.className = 'bar-chart__col';
-    const heightPct = Math.max(3, (d.minutes / max) * 100);
-    col.innerHTML = `<div class="bar-chart__bar" style="height:${heightPct}%" title="${d.minutes} min"></div><span class="bar-chart__label">${d.label}</span>`;
-    chart.appendChild(col);
-  });
+async function renderRanking() {
+  const list = $('#rank-list'), msg = $('#rank-msg');
+  if (!list || !msg) return;
+  list.innerHTML = '';
+  msg.hidden = false;
+  if (!currentUser || !window.db) {
+    msg.textContent = 'Inicia sesión con Google para ver el ranking y aparecer en él.';
+    return;
+  }
+  msg.textContent = 'Cargando…';
+  try {
+    const snap = await window.db.collection('leaderboard').orderBy('minutes', 'desc').limit(20).get();
+    if (snap.empty) { msg.textContent = 'Aún no hay nadie en el ranking.'; return; }
+    msg.hidden = true;
+    const top = Number(snap.docs[0].data().minutes) || 1;
+    list.innerHTML = snap.docs.map((d, i) => {
+      const r = d.data();
+      const mins = Number(r.minutes) || 0;
+      const medal = ['🥇', '🥈', '🥉'][i] || (i + 1);
+      return `<li class="rank-row${d.id === currentUser.uid ? ' is-me' : ''}"><span class="rank-pos">${medal}</span><span class="rank-name">${escapeHtml(r.name || 'Anónimo')}<i class="rank-bar" style="width:${Math.max(4, mins / top * 100)}%"></i></span><span class="rank-hours">${fmtMin(mins)}</span></li>`;
+    }).join('');
+  } catch (e) {
+    msg.hidden = false;
+    msg.textContent = 'No se pudo cargar el ranking. Revisa las reglas de Firestore para la colección "leaderboard".';
+  }
 }
 
 function renderTotalHours() {
@@ -809,6 +871,8 @@ function renderReportStats() {
   const streakEl = $('#stat-streak');
   if (daysEl) daysEl.textContent = accessDates.length;
   if (streakEl) streakEl.textContent = computeStreak(accessDates);
+  const streakCard = $('#streak-card');
+  if (streakCard) streakCard.classList.toggle('is-hot', computeStreak(accessDates) > 0);
 }
 
 function computeStreak(dates) {
@@ -904,6 +968,19 @@ function setupEventListeners() {
       if (view === 'report') renderReport();
     });
   });
+
+  // 1b. Pestañas del reporte, periodo y navegación
+  $$('.report-tab').forEach(btn => btn.addEventListener('click', () => {
+    $$('.report-tab').forEach(b => b.classList.toggle('is-active', b === btn));
+    ['summary', 'detail', 'ranking'].forEach(k => { const p = $('#rpanel-' + k); if (p) p.hidden = k !== btn.dataset.rtab; });
+    if (btn.dataset.rtab === 'ranking') renderRanking();
+  }));
+  $$('.period-btn').forEach(btn => btn.addEventListener('click', () => {
+    reportPeriod = btn.dataset.period; reportOffset = 0; renderBarChart();
+  }));
+  const pPrev = $('#period-prev'), pNext = $('#period-next');
+  if (pPrev) pPrev.addEventListener('click', () => { reportOffset--; renderBarChart(); });
+  if (pNext) pNext.addEventListener('click', () => { if (reportOffset < 0) { reportOffset++; renderBarChart(); } });
 
   // 2. Modos del temporizador (Pomodoro <-> Descanso corto <-> Descanso largo)
   $$('.mode-btn').forEach(btn => {
@@ -1266,11 +1343,21 @@ async function syncWithFirestore() {
       renderTasks();
     }
 
-    const sessionSnap = await userRef.collection('sessions').orderBy('completedAt', 'desc').limit(50).get();
+    const sessionSnap = await userRef.collection('sessions').orderBy('completedAt', 'desc').limit(1000).get();
     if (!sessionSnap.empty) {
       sessions = sessionSnap.docs.map(d => d.data());
       renderReport();
     }
+
+    try {
+      const all = await userRef.collection('sessions').where('mode', '==', 'pomodoro').get();
+      const total = all.docs.reduce((t, d) => t + (Number(d.data().minutes) || 0), 0);
+      await window.db.collection('leaderboard').doc(currentUser.uid).set({
+        name: publicName(currentUser),
+        minutes: total,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+    } catch (e) { console.warn('Ranking no disponible (¿reglas de Firestore?):', e); }
 
     renderReportStats();
   } catch (e) {
