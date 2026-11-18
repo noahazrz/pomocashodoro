@@ -720,6 +720,11 @@ function logSession(sessionMode, minutes) {
           minutes: firebase.firestore.FieldValue.increment(safeMinutes),
           updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         }, { merge: true }).catch(() => {});
+        weeklyRankRef(currentUser.uid).set({
+          name: publicName(currentUser),
+          minutes: firebase.firestore.FieldValue.increment(safeMinutes),
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true }).catch(() => {});
       }
     } catch (e) {}
   }
@@ -832,9 +837,26 @@ function publicName(user) {
   return user && user.displayName ? user.displayName.split(' ')[0] : 'Anónimo';
 }
 
+// Clave de la semana actual = fecha (AAAA-MM-DD) del lunes. Mismo criterio lunes-domingo que el reporte.
+function weekKeyOf(d = new Date()) {
+  const x = new Date(d);
+  x.setHours(12, 0, 0, 0);
+  x.setDate(x.getDate() - ((x.getDay() + 6) % 7));
+  return todayKey(x);
+}
+
+// Ranking semanal: leaderboard_weeks/{lunes}/users/{uid}. Cada semana es una colección nueva,
+// así que no hace falta "reiniciar" nada y no se necesita ningún índice compuesto.
+function weeklyRankRef(uid) {
+  return window.db.collection('leaderboard_weeks').doc(weekKeyOf()).collection('users').doc(uid);
+}
+
+let rankScope = 'all';
+
 async function renderRanking() {
   const list = $('#rank-list'), msg = $('#rank-msg');
   if (!list || !msg) return;
+  $$('.rank-scope-btn').forEach(b => b.classList.toggle('is-active', b.dataset.scope === rankScope));
   list.innerHTML = '';
   msg.hidden = false;
   if (!currentUser || !window.db) {
@@ -843,8 +865,14 @@ async function renderRanking() {
   }
   msg.textContent = 'Cargando…';
   try {
-    const snap = await window.db.collection('leaderboard').orderBy('minutes', 'desc').limit(20).get();
-    if (snap.empty) { msg.textContent = 'Aún no hay nadie en el ranking.'; return; }
+    const query = rankScope === 'week'
+      ? window.db.collection('leaderboard_weeks').doc(weekKeyOf()).collection('users')
+      : window.db.collection('leaderboard');
+    const snap = await query.orderBy('minutes', 'desc').limit(20).get();
+    if (snap.empty) {
+      msg.textContent = rankScope === 'week' ? 'Aún no hay nadie en el ranking de esta semana.' : 'Aún no hay nadie en el ranking.';
+      return;
+    }
     msg.hidden = true;
     const top = Number(snap.docs[0].data().minutes) || 1;
     list.innerHTML = snap.docs.map((d, i) => {
@@ -977,6 +1005,10 @@ function setupEventListeners() {
   }));
   $$('.period-btn').forEach(btn => btn.addEventListener('click', () => {
     reportPeriod = btn.dataset.period; reportOffset = 0; renderBarChart();
+  }));
+  $$('.rank-scope-btn').forEach(btn => btn.addEventListener('click', () => {
+    rankScope = btn.dataset.scope;
+    renderRanking();
   }));
   const pPrev = $('#period-prev'), pNext = $('#period-next');
   if (pPrev) pPrev.addEventListener('click', () => { reportOffset--; renderBarChart(); });
@@ -1357,6 +1389,20 @@ async function syncWithFirestore() {
         minutes: total,
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
       }, { merge: true });
+
+      // Total de esta semana (lunes-domingo), calculado con las mismas sesiones
+      const wk = weekKeyOf();
+      const weekTotal = all.docs.reduce((t, d) => {
+        const r = d.data();
+        return (r.dateKey || '') >= wk ? t + (Number(r.minutes) || 0) : t;
+      }, 0);
+      if (weekTotal > 0) {
+        await weeklyRankRef(currentUser.uid).set({
+          name: publicName(currentUser),
+          minutes: weekTotal,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+      }
     } catch (e) { console.warn('Ranking no disponible (¿reglas de Firestore?):', e); }
 
     renderReportStats();

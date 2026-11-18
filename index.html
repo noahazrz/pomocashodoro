@@ -172,7 +172,13 @@
 
     <div class="rpanel" id="rpanel-ranking" hidden>
       <section class="chart-card">
-        <div class="chart-card__head"><h2>Ranking de enfoque</h2></div>
+        <div class="chart-card__head">
+          <h2>Ranking de enfoque</h2>
+          <div class="period-switch">
+            <button type="button" class="rank-scope-btn period-btn is-active" data-scope="all">Permanente</button>
+            <button type="button" class="rank-scope-btn period-btn" data-scope="week">Semanal</button>
+          </div>
+        </div>
         <ol class="rank-list" id="rank-list"></ol>
         <p class="log-empty" id="rank-msg" hidden></p>
       </section>
@@ -323,6 +329,6 @@
 <script src="firebase-config.js?v=20261117_3"></script>
 
 <!-- 3. Main App script -->
-<script src="app.js?v=20261118_3"></script>
+<script src="app.js?v=20261118_4"></script>
 </body>
 </html>
