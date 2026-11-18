@@ -400,12 +400,16 @@ function onIntervalComplete() {
   playAlarm();
   notifyDesktop();
 
-  const fullDuration = getModeDurationSeconds(mode) / 60;
+  // Duración REAL del cronómetro que acaba de terminar (la que tenía al empezar).
+  // No se usa el ajuste actual: si lo cambiaste con el cronómetro en marcha, se
+  // registraban minutos que no habían pasado (p. ej. 24 min de un cronómetro de 1 min).
+  const fullDuration = ((modeState[mode] && modeState[mode].initialSeconds) || getModeDurationSeconds(mode)) / 60;
 
   // El modo que acaba de terminar vuelve a su duración completa. Si no, se queda
   // guardado en 00:00 y al volver a esa pestaña hay que darle a REINICIAR a mano
   // (lo que además registraba otra vez el tiempo completo en el reporte).
-  modeState[mode] = { secondsLeft: fullDuration * 60, initialSeconds: fullDuration * 60 };
+  const nextFull = getModeDurationSeconds(mode);
+  modeState[mode] = { secondsLeft: nextFull, initialSeconds: nextFull };
 
   if (mode === 'pomodoro') {
     logSession('pomodoro', fullDuration);
@@ -536,9 +540,11 @@ function checkAndRestoreActiveTimer() {
     ['pomodoro', 'short', 'long'].forEach(m => {
       const full = getModeDurationSeconds(m);
       const ms = modeState[m];
-      const invalid = !ms || typeof ms.secondsLeft !== 'number' || ms.secondsLeft <= 0 || ms.secondsLeft > full;
-      if (invalid) modeState[m] = { secondsLeft: full, initialSeconds: full };
-      else if (!ms.initialSeconds) ms.initialSeconds = full;
+      if (!ms || typeof ms.secondsLeft !== 'number' || ms.secondsLeft <= 0) {
+        modeState[m] = { secondsLeft: full, initialSeconds: full };
+      } else if (!ms.initialSeconds || ms.secondsLeft > ms.initialSeconds) {
+        ms.initialSeconds = Math.max(ms.initialSeconds || 0, ms.secondsLeft);
+      }
     });
     if (!state.isRunning && typeof state.secondsLeft === 'number' && state.secondsLeft <= 0) {
       state.secondsLeft = modeState[mode].secondsLeft;
@@ -1086,6 +1092,7 @@ function setupEventListeners() {
         } catch (e) {}
       }
 
+      saveTimerState();
       updateRoundDisplay();
       closeSettings();
       showToast('Configuración guardada.');
